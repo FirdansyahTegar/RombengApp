@@ -1,7 +1,7 @@
 package com.example.rombeng.model
 
-data class DataLogin(
-    val email: String,
+data class LoginRequest(
+    val email_or_username: String,
     val password: String
 )
 

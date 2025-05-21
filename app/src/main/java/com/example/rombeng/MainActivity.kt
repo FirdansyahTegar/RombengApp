@@ -100,7 +100,15 @@ fun AppNavigator(viewModel: RombengViewModel) {
         composable("splash") { RombengLoadScreen() }
         composable("landing") { RombengLanding(navController) }
         composable("signup") { RombengRegister(navController) }
-        composable("signin") { RombengLogin(navController) }
+        composable("signin") { RombengLogin(
+            navController,
+            onLoginSuccess = {
+                navController.navigate("home") {
+                    popUpTo("signin") { inclusive = true }
+                }
+            }
+        ) }
+        composable("addUser") { AddUserForm(navController) }
         composable("home") { HomeScreen(navController) }
         composable("forgot") { ForgotPasswordScreen(navController) }
         composable("reset") { ResetPasswordScreen(navController) }

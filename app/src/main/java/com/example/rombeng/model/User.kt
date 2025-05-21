@@ -8,10 +8,10 @@ data class Address(
 )
 
 data class User(
-    val id: String,
+    val id: Int,
     val username: String,
     val email: String,
-    val private_key: String,
-    val created_at: String
+    val private_key: String? = "",
+    val created_at: String? = ""
 //    val address: Address
 )

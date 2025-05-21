@@ -1,6 +1,9 @@
 package com.example.rombeng.view
 
+import androidx.compose.ui.text.input.KeyboardType.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.Image
+import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -70,19 +74,38 @@ import com.example.rombeng.model.User
 import com.example.rombeng.service.RetrofitClient
 import com.example.rombeng.R
 import com.example.rombeng.viewmodel.RombengViewModel
+import com.example.rombeng.viewmodel.LoginViewModel
 import android.graphics.Color as Colour
 import androidx.compose.runtime.SideEffect
 import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.rombeng.model.AddUserResponse
+import com.example.rombeng.viewmodel.LoginUIState
+import android.widget.Toast
+import androidx.compose.material3.CircularProgressIndicator
+import kotlinx.coroutines.delay
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
+var isErrorName by mutableStateOf(false)
+var isErrorEmail by mutableStateOf(false)
+var isErrorPass by mutableStateOf(false)
+var isErrorConfPass by mutableStateOf(false)
 
 
 @Composable //Loading Screen
@@ -227,12 +250,208 @@ fun RombengLanding(navController: NavController, viewModel: RombengViewModel = v
     }
 }
 
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//fun RombengLogin(
+//    navController: NavController,
+//    viewModel: LoginViewModel = viewModel(),
+//    onLoginSuccess: () -> Unit
+//) {
+//
+//
+//    val loginState by viewModel.loginResult.observeAsState(initial = LoginUIState.Idle)
+//    val isLoading by viewModel.isLoading.observeAsState(initial = false)
+//
+//
+//    LaunchedEffect(Unit) {
+//        viewModel.resetTextField()
+//    }
+//    Box(
+//        modifier = Modifier
+//            .fillMaxSize()
+//            .background(Color.White),
+//        contentAlignment = Alignment.TopCenter
+//    ) {
+//        Column(
+//            modifier = Modifier.fillMaxSize(),
+//            horizontalAlignment = Alignment.CenterHorizontally
+//        ) {
+//            Spacer(modifier = Modifier.height(44.dp))
+//
+//            // Logo dan Judul
+//            LogoRombeng()
+//
+//            Spacer(modifier = Modifier.height(40.dp))
+//
+//            // Welcome Text
+//            Text(
+//                text = "Welcome to Rombeng",
+//                fontSize = 30.sp,
+//                fontFamily = FontFamily.SansSerif,
+//                fontWeight = FontWeight.Bold,
+//                textAlign = TextAlign.Center,
+//                modifier = Modifier.fillMaxWidth()
+//            )
+//            Spacer(modifier = Modifier.height(20.dp))
+//            Text(
+//                text = "Sign in below to manage your needs",
+//                fontSize = 16.sp,
+//                fontFamily = FontFamily.SansSerif,
+//                textAlign = TextAlign.Center,
+//                modifier = Modifier.fillMaxWidth()
+//            )
+//
+//            Spacer(modifier = Modifier.height(40.dp))
+//
+//            // Input Fields
+//            Column(
+//                horizontalAlignment = Alignment.CenterHorizontally,
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .background(Color(0xFFF5F5F5))
+//                    .navigationBarsPadding()
+//
+//            ) {
+//                Spacer(modifier = Modifier.height(40.dp))
+//                TextFieldBuilder(
+//                    value = viewModel.email,
+//                    onValueChange = { viewModel.onEmailChange(it) },
+//                    placeholder = "Enter your email",
+//                    leadingIcon = Icons.Default.Email,
+//                    modifier = Modifier
+//                        .padding(horizontal = 16.dp)
+//                )
+//                Spacer(modifier = Modifier.height(10.dp))
+//                PassTextFieldBuilder(
+//                    value = viewModel.password,
+//                    onValueChange = { viewModel.onPassChange(it) },
+//                    placeholder = "Enter your password",
+//                    leadingIcon = Icons.Default.Lock,
+//                    modifier = Modifier
+//                        .padding(horizontal = 16.dp)
+//                )
+//
+//                Spacer(modifier = Modifier.height(20.dp))
+//                Text(
+//                    text = "or continue with your Google Account",
+//                    fontSize = 12.sp,
+//                    fontFamily = FontFamily.SansSerif,
+//                    textAlign = TextAlign.Center,
+//                    color = Color(0xFF6A6161),
+//                    modifier = Modifier.fillMaxWidth()
+//                )
+//
+//                Spacer(modifier = Modifier.height(20.dp))
+//
+//                // Sign In Button
+//                Button(
+//                    onClick = { navController.navigate("home") },
+//                    colors = ButtonDefaults.buttonColors(
+//                        containerColor = Color.White
+//                    ),
+//                    modifier = Modifier
+//                        .width(296.dp)
+//                        .height(67.dp),
+//                    shape = RoundedCornerShape(20.dp)
+//
+//                ) {
+//                    Row(
+//                        verticalAlignment = Alignment.CenterVertically, // Posisi vertikal rata tengah
+//                        horizontalArrangement = Arrangement.Center // Pusatkan elemen dalam Row
+//                    ) {
+//                        Image(
+//                            painter = painterResource(id = R.drawable.google_logo), // Ganti dengan ID gambar Google
+//                            contentDescription = "Google Logo",
+//                            modifier = Modifier
+//                                .size(24.dp) // Ukuran logo
+//                        )
+//                        Spacer(modifier = Modifier.width(8.dp)) // Spasi antara logo dan teks
+//                        Text(
+//                            "Login with Google",
+//                            fontSize = 20.sp,
+//                            color = Color.Black
+//                        )
+//                    }
+//                }
+//
+//                Spacer(modifier = Modifier.height(10.dp))
+//
+//                Button(
+//                    onClick = { navController.navigate("home") },
+//                    colors = ButtonDefaults.buttonColors(
+//                        containerColor = Color(0xFFFF8D21)
+//                    ),
+//                    modifier = Modifier
+//                        .width(296.dp)
+//                        .height(67.dp),
+//                    shape = RoundedCornerShape(20.dp)
+//                ) {
+//                    Text("Sign In", fontSize = 24.sp, color = Color(0xFF822900))
+//                }
+//                Spacer(modifier = Modifier.height(30.dp))
+//
+//                // Forgot Password
+//                Text(
+//                    text = "Lupa Password ?",
+//                    fontSize = 14.sp,
+//                    color = Color(0xFF6A6161),
+//                    textAlign = TextAlign.Center,
+//                    textDecoration = TextDecoration.Underline,
+//                    modifier = Modifier
+//                        .clickable {
+//                            navController.navigate("forgot")
+//                        }
+//                        .fillMaxWidth(),
+//                )
+//                Spacer(modifier = Modifier.weight(1f))
+//            }
+//
+//
+//        }
+//    }
+//}
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RombengLogin(navController: NavController, viewModel: RombengViewModel = viewModel()) {
-    LaunchedEffect(Unit) {
-        viewModel.resetTextField()
+fun RombengLogin(
+    navController: NavController,
+    loginViewModel: LoginViewModel = viewModel(),
+    onLoginSuccess: () -> Unit
+) {
+    val context = LocalContext.current
+
+    // Mengamati LiveData dari ViewModel untuk hasil login dan status loading
+    val loginState by loginViewModel.loginResult.observeAsState(initial = LoginUIState.Idle)
+    val isLoading by loginViewModel.isLoading.observeAsState(initial = false)
+    val emailValue = loginViewModel.email // Asumsi email adalah MutableState<String> di ViewModel
+    val passwordValue = loginViewModel.password // Asumsi password adalah MutableState<String> di ViewModel
+
+    // Efek untuk menangani perubahan state login (menampilkan Toast, navigasi)
+    LaunchedEffect(loginState) {
+        when (val state = loginState) {
+            is LoginUIState.Success -> {
+                Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                onLoginSuccess() // Panggil callback untuk navigasi
+                // loginViewModel.resetLoginState() // Opsional: reset state di ViewModel agar tidak trigger lagi
+            }
+            is LoginUIState.Error -> {
+                Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
+            }
+            LoginUIState.LoggedOut -> {
+                // Bisa ditambahkan logika jika diperlukan saat logout dari layar ini
+            }
+            LoginUIState.Idle -> {
+                // State awal atau netral
+            }
+        }
     }
+
+    // Opsional: Jika Anda memiliki fungsi untuk mereset field di ViewModel saat layar pertama kali muncul
+    // LaunchedEffect(Unit) {
+    //     loginViewModel.resetTextFields() // Anda perlu membuat fungsi ini di ViewModel
+    // }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -245,12 +464,10 @@ fun RombengLogin(navController: NavController, viewModel: RombengViewModel = vie
         ) {
             Spacer(modifier = Modifier.height(44.dp))
 
-            // Logo dan Judul
-            LogoRombeng()
+            LogoRombeng() // Asumsi Composable ini sudah ada
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Welcome Text
             Text(
                 text = "Welcome to Rombeng",
                 fontSize = 30.sp,
@@ -270,32 +487,30 @@ fun RombengLogin(navController: NavController, viewModel: RombengViewModel = vie
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Input Fields
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFFF5F5F5))
-                    .navigationBarsPadding()
-
+                    .navigationBarsPadding() // Menambahkan padding untuk navigation bar sistem
+                    .padding(bottom = 16.dp) // Padding bawah agar konten tidak terlalu mepet
             ) {
                 Spacer(modifier = Modifier.height(40.dp))
-                TextFieldBuilder(
-                    value = viewModel.email,
-                    onValueChange = { viewModel.onEmailChange(it) },
+
+                TextFieldBuilder( // Asumsi Composable ini sudah ada
+                    value = emailValue,
+                    onValueChange = { loginViewModel.onEmailChange(it) }, // Panggil fungsi ViewModel
                     placeholder = "Enter your email",
                     leadingIcon = Icons.Default.Email,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                PassTextFieldBuilder(
-                    value = viewModel.password,
-                    onValueChange = { viewModel.onPassChange(it) },
+                PassTextFieldBuilder( // Asumsi Composable ini sudah ada
+                    value = passwordValue,
+                    onValueChange = { loginViewModel.onPassChange(it) }, // Panggil fungsi ViewModel
                     placeholder = "Enter your password",
                     leadingIcon = Icons.Default.Lock,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -310,9 +525,14 @@ fun RombengLogin(navController: NavController, viewModel: RombengViewModel = vie
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Sign In Button
+                // Tombol Login dengan Google (sementara navigasi ke "home")
                 Button(
-                    onClick = { navController.navigate("home") },
+                    onClick = {
+                        // TODO: Implementasikan logika Login dengan Google di sini
+                        // Untuk sekarang, kita biarkan navigasi ke home atau tampilkan pesan
+                        Toast.makeText(context, "Login dengan Google belum diimplementasikan", Toast.LENGTH_SHORT).show()
+                        // navController.navigate("home") // Hapus atau sesuaikan jika belum siap
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White
                     ),
@@ -320,19 +540,17 @@ fun RombengLogin(navController: NavController, viewModel: RombengViewModel = vie
                         .width(296.dp)
                         .height(67.dp),
                     shape = RoundedCornerShape(20.dp)
-
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically, // Posisi vertikal rata tengah
-                        horizontalArrangement = Arrangement.Center // Pusatkan elemen dalam Row
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.google_logo), // Ganti dengan ID gambar Google
+                            painter = painterResource(id = R.drawable.google_logo), // Pastikan resource ada
                             contentDescription = "Google Logo",
-                            modifier = Modifier
-                                .size(24.dp) // Ukuran logo
+                            modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp)) // Spasi antara logo dan teks
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             "Login with Google",
                             fontSize = 20.sp,
@@ -342,18 +560,30 @@ fun RombengLogin(navController: NavController, viewModel: RombengViewModel = vie
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
-
+                // Tombol Sign In utama
                 Button(
-                    onClick = { navController.navigate("home") },
+                    onClick = {
+                        // Panggil fungsi login dari ViewModel dengan nilai email dan password saat ini
+                        loginViewModel.login(emailValue, passwordValue)
+                    },
+                    enabled = !isLoading, // Nonaktifkan tombol saat proses login sedang berjalan
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF8D21)
+                        containerColor = Color(0xFFFF8D21),
+                        disabledContainerColor = Color(0xFFFF8D21).copy(alpha = 0.5f) // Warna saat disabled
                     ),
                     modifier = Modifier
                         .width(296.dp)
                         .height(67.dp),
                     shape = RoundedCornerShape(20.dp)
                 ) {
-                    Text("Sign In", fontSize = 24.sp, color = Color(0xFF822900))
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color(0xFF822900) // Atau warna yang kontras dengan background tombol
+                        )
+                    } else {
+                        Text("Sign In", fontSize = 24.sp, color = Color(0xFF822900))
+                    }
                 }
                 Spacer(modifier = Modifier.height(30.dp))
 
@@ -366,19 +596,25 @@ fun RombengLogin(navController: NavController, viewModel: RombengViewModel = vie
                     textDecoration = TextDecoration.Underline,
                     modifier = Modifier
                         .clickable {
+                            // Pastikan "forgot" adalah route yang valid di NavController Anda
                             navController.navigate("forgot")
                         }
                         .fillMaxWidth(),
                 )
-                Spacer(modifier = Modifier.weight(1f))
+                // Spacer untuk mendorong konten ke atas jika Column lebih tinggi dari kontennya
+                // Jika Anda ingin konten tetap di tengah secara vertikal dalam Column abu-abu,
+                // Anda mungkin perlu menyesuaikan atau menghapus Spacer ini dan mengatur
+                // verticalArrangement pada Column abu-abu.
+                // Untuk saat ini, saya biarkan agar mirip dengan struktur sebelumnya.
+                Spacer(modifier = Modifier.weight(1f)) // Mendorong elemen "Lupa Password?" ke bawah jika ada ruang
             }
-
-
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+
+
+                @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RombengRegister(navController: NavController, viewModel: RombengViewModel = viewModel()) {
     LaunchedEffect(Unit) {
@@ -431,101 +667,77 @@ fun RombengRegister(navController: NavController, viewModel: RombengViewModel = 
 
             ) {
 
-                TextField(
+                TextFieldBuilder(
                     value = viewModel.name,
-                    onValueChange = { viewModel.onNameChange(it) },
-                    placeholder = { Text("Your name") },
-                    colors = TextFieldDefaults.textFieldColors(
-                        containerColor = Color.White, // Warna latar belakang
-                        cursorColor = Color.Black, // Warna kursor
-                        focusedIndicatorColor = Color.Transparent, // Garis bawah saat fokus
-                        unfocusedIndicatorColor = Color.Transparent // Garis bawah saat tidak fokus
-                    ),
-                    leadingIcon = { // Ikon di sebelah kiri teks
-                        Icon(
-                            imageVector = Icons.Default.Person, // Ganti dengan ikon yang sesuai
-                            contentDescription = "Person Icon",
-                            tint = Color.Gray // Warna ikon
-                        )
-                    },
+                    onValueChange = {
+                        viewModel.onNameChange(it)
+                        isErrorName = it.length < 6 && it.isNotEmpty()
+                        },
+                    isError = isErrorName,
+                    errorMessage = "Username harus lebih dari 6 karakter",
+                    placeholder = "Enter your name",
+                    leadingIcon = Icons.Default.Person,
                     modifier = Modifier
-                        .width(296.dp)
-                        .background(Color.White, shape = RoundedCornerShape(5.dp))
+                        .padding(horizontal = 16.dp)
+                        .clip(shape = RoundedCornerShape(10.dp))
                 )
+
                 Spacer(modifier = Modifier.height(10.dp))
 
-                TextField(
+                TextFieldBuilder(
                     value = viewModel.email,
-                    onValueChange = { viewModel.onEmailChange(it) },
-                    placeholder = { Text("Enter your email") },
-                    colors = TextFieldDefaults.textFieldColors(
-                        containerColor = Color.White, // Warna latar belakang
-                        cursorColor = Color.Black, // Warna kursor
-                        focusedIndicatorColor = Color.Transparent, // Garis bawah saat fokus
-                        unfocusedIndicatorColor = Color.Transparent // Garis bawah saat tidak fokus
-                    ),
-                    leadingIcon = { // Ikon di sebelah kiri teks
-                        Icon(
-                            imageVector = Icons.Default.Email, // Ganti dengan ikon yang sesuai
-                            contentDescription = "Email Icon",
-                            tint = Color.Gray // Warna ikon
-                        )
+                    onValueChange = {
+                        viewModel.onEmailChange(it)
+                        isErrorEmail = !viewModel.validateEmail(it) && it.isNotEmpty()
                     },
+                    isError = isErrorEmail,
+                    errorMessage = "Email tidak valid",
+                    keyType = KeyboardType.Email,
+                    placeholder = "Enter your email",
+                    leadingIcon = Icons.Default.Email,
                     modifier = Modifier
-                        .width(296.dp)
-                        .background(Color.White, shape = RoundedCornerShape(5.dp))
+                        .padding(horizontal = 16.dp)
+                        .clip(shape = RoundedCornerShape(10.dp))
                 )
+
                 Spacer(modifier = Modifier.height(10.dp))
-                TextField(
+                PassTextFieldBuilder(
                     value = viewModel.password,
-                    onValueChange = { viewModel.onPassChange(it) },
-                    placeholder = { Text("Enter your password") },
-                    colors = TextFieldDefaults.textFieldColors(
-                        containerColor = Color.White, // Warna latar belakang
-                        cursorColor = Color.Black, // Warna kursor
-                        focusedIndicatorColor = Color.Transparent, // Garis bawah saat fokus
-                        unfocusedIndicatorColor = Color.Transparent // Garis bawah saat tidak fokus
-                    ),
-                    leadingIcon = { // Ikon di sebelah kiri teks
-                        Icon(
-                            imageVector = Icons.Default.Lock, // Ganti dengan ikon yang sesuai
-                            contentDescription = "Email Icon",
-                            tint = Color.Gray // Warna ikon
-                        )
+                    onValueChange = {
+                        viewModel.onPassChange(it)
+                        isErrorPass = it.length < 8 && it.isNotEmpty()
                     },
-
+                    isError = isErrorPass,
+                    errorMessage = "Password harus lebih dari 8 karakter",
+                    placeholder = "Masukkan Password",
+                    leadingIcon = Icons.Default.Lock,
                     modifier = Modifier
-                        .width(296.dp)
+                        .padding(horizontal = 16.dp)
+                        .clip(shape = RoundedCornerShape(10.dp))
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
-                TextField(
+                PassTextFieldBuilder(
                     value = viewModel.confPass,
-                    onValueChange = { viewModel.onConfPassChange(it) },
-                    placeholder = { Text("Confirm password") },
-                    colors = TextFieldDefaults.textFieldColors(
-                        containerColor = Color.White, // Warna latar belakang
-                        cursorColor = Color.Black, // Warna kursor
-                        focusedIndicatorColor = Color.Transparent, // Garis bawah saat fokus
-                        unfocusedIndicatorColor = Color.Transparent // Garis bawah saat tidak fokus
-                    ),
-                    leadingIcon = { // Ikon di sebelah kiri teks
-                        Icon(
-                            imageVector = Icons.Default.Lock, // Ganti dengan ikon yang sesuai
-                            contentDescription = "Email Icon",
-                            tint = Color.Gray // Warna ikon
-                        )
-                    },
-
+                    onValueChange = {
+                        viewModel.onConfPassChange(it)
+                        isErrorConfPass = it != viewModel.password && it.isNotEmpty()
+                                    },
+                    isError = isErrorConfPass,
+                    errorMessage = "Password tidak sama",
+                    placeholder = "Confirm Password",
+                    leadingIcon = Icons.Default.Lock,
                     modifier = Modifier
-                        .width(296.dp)
+                        .padding(horizontal = 16.dp)
+                        .clip(shape = RoundedCornerShape(10.dp))
                 )
 
                 Spacer(modifier = Modifier.height(40.dp))
 
                 // Sign In Button
                 Button(
-                    onClick = {navController.navigate("home")},
+                    enabled = viewModel.regButton,
+                    onClick = {viewModel.registerUser()},
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFFF8D21)
                     ),
@@ -535,6 +747,27 @@ fun RombengRegister(navController: NavController, viewModel: RombengViewModel = 
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Text("Sign Up", fontSize = 20.sp, color = Color(0xFF822900))
+                }
+                Spacer(modifier = Modifier.height(30.dp))
+
+
+                if (viewModel.error or viewModel.succes) {
+                    Text(
+                        text = viewModel.message,
+                        fontSize = 16.sp,
+                        color = if (viewModel.succes) {Color.Green} else {Color.Red},
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                    )
+                }
+
+
+                if (viewModel.succes) {
+                    LaunchedEffect(Unit) {
+                        delay(1000)
+                        navController.navigate("signin")
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(30.dp))
@@ -560,212 +793,200 @@ fun RombengRegister(navController: NavController, viewModel: RombengViewModel = 
 
 @Composable
 fun HomeScreen(navController: NavController, viewModel: RombengViewModel = viewModel()) {
-        LaunchedEffect(Unit) {
-            viewModel.resetTextField()
-        }
-        
-        Column(
-            modifier = Modifier
-                .statusBarsPadding()
-                .background(Color.White)
-                .fillMaxSize()
 
-        ) {
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-            )   {
-
-                // App Title & Logo
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, bottom = 10.dp)
-                ) {
-                    LogoRombeng()
-                }
-            }
-
-            // Search Bar
-            Box(
-                modifier = Modifier
-
-                    .height(200.dp)
-                    .fillMaxWidth()
-
-            ) {
-
-                Image(
-                    painter = painterResource(id = R.drawable.bg_home),
-                    contentDescription = "Background",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
+    // === Buat Fullscreen / Immersive Mode ===
+    val view = LocalView.current
+    LaunchedEffect(Unit) {
+        val window = (view.context as Activity).window
+        window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+//                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 )
+    }
 
-                Column(modifier = Modifier.clickable { navController.navigate("search") }) {
-                    Spacer(Modifier.height(12.dp))
-                    TextFieldBuilder(
-                        enabled = false,
-                        value = "",
-                        onValueChange = { },
-                        placeholder = "Mau Cari Apa?",
-                        leadingIcon = Icons.Default.Search,
-                        modifier = Modifier
-                            .padding(horizontal = 24.dp)
-                            .clip(shape = RoundedCornerShape(10.dp))
+    var showExitDialog by remember { mutableStateOf(false) }
 
-                    )
+    BackHandler {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        val activity = LocalActivity.current
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Keluar Aplikasi") },
+            text = { Text("Apakah Anda yakin ingin keluar?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    activity?.finish()
+                }) {
+                    Text("Ya")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text("Tidak")
                 }
             }
-            val categories = listOf(
-                "Elektronik", "Furnitur", "Material Bangunan", "Kendaraan", "Lihat Semua"
-            )
+        )
+    }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(color = Color.White)
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                categories.forEachIndexed { index, category ->
+    // ==== Layout Utama ====
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .systemBarsPadding()
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
 
-                    val imgId = when (index) {
-                        0 -> R.drawable.elektronik
-                        1 -> R.drawable.furnitur
-                        2 -> R.drawable.material_bangunan
-                        3 -> R.drawable.kendaraan
-                        4 -> R.drawable.lihat_semua
-                        else -> R.drawable.placeholder // fallback image
-                    }
-
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                item {
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .width(60.dp)
+                            .fillMaxWidth()
+                            .background(Color.White)
                     ) {
+                        // App Title & Logo
                         Box(
                             modifier = Modifier
-                                .size(60.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color(0xFFFF8000)),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, bottom = 10.dp)
                         ) {
-                            Image(
-                                painter = painterResource(id = imgId),
-                                contentDescription = "Icon",
-                                modifier = Modifier.size(36.dp) // Ukuran bisa disesuaikan
+                            LogoRombeng()
+                        }
+                    }
+                    // Search Bar
+                    Box(
+                        modifier = Modifier
+                            .height(200.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.bg_home),
+                            contentDescription = "Background",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                        )
+                        Column(modifier = Modifier.clickable { navController.navigate("search") }) {
+                            Spacer(Modifier.height(12.dp))
+                            TextFieldBuilder(
+                                enabled = false,
+                                value = "",
+                                onValueChange = { },
+                                placeholder = "Mau Cari Apa?",
+                                leadingIcon = Icons.Default.Search,
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp)
+                                    .clip(shape = RoundedCornerShape(10.dp))
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = category,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Serif, // Bisa diganti Font(R.font.crimson_text) kalau punya
-                            fontWeight = FontWeight.Normal,
-                            color = Color.Black,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.height(27.dp)
-                        )
                     }
-                }
-            }
-
-            Column (
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 5.dp)
-            ) {
-                Text(
-                    text = "Rekomendasi Barang Bekas",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(start = 16.dp),
-                    color = Color.Black
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    val items = listOf(
-                        Triple("Rombeng Kulkas Sanyo", "Rp300.000", "Singosari"),
-                        Triple("Rombeng Elektronik Rusak", "Rp350.000", "Merjosari")
+                    val categories = listOf(
+                        "Elektronik", "Furnitur", "Material Bangunan", "Kendaraan", "Lihat Semua"
                     )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(color = Color.White)
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        categories.forEachIndexed { index, category ->
+                            val imgId = when (index) {
+                                0 -> R.drawable.elektronik
+                                1 -> R.drawable.furnitur
+                                2 -> R.drawable.material_bangunan
+                                3 -> R.drawable.kendaraan
+                                4 -> R.drawable.lihat_semua
+                                else -> R.drawable.placeholder // fallback image
+                            }
 
-                    items.forEach { (title, price, location) ->
-                        Box(
-                            modifier = Modifier
-                                .width(150.dp)
-                                .height(160.dp)
-                                .border(1.dp, Color(0xFFFF8000), shape = RoundedCornerShape(20.dp))
-                        ) {
                             Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(20.dp))
+                                    .width(60.dp)
                             ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.img),
-                                    contentDescription = title,
+                                Box(
                                     modifier = Modifier
-                                        .height(100.dp)
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-
+                                        .size(60.dp)
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(Color(0xFFFF8000)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = imgId),
+                                        contentDescription = "Icon",
+                                        modifier = Modifier.size(36.dp) // Ukuran bisa disesuaikan
+                                    )
+                                }
                                 Spacer(modifier = Modifier.height(4.dp))
-
                                 Text(
-                                    text = title,
+                                    text = category,
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Serif,
-                                    color = Color.Black,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
-                                )
-
-                                Text(
-                                    text = price,
-                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Serif, // Bisa diganti Font(R.font.crimson_text) kalau punya
                                     fontWeight = FontWeight.Normal,
-                                    fontFamily = FontFamily.Serif,
                                     color = Color.Black,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
-                                )
-
-                                Text(
-                                    text = location,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Serif,
-                                    color = Color(0xFF6A6161),
-                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.height(27.dp)
                                 )
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.weight(1f))
-            // Bottom Navigation
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.Black)
-                    .align(Alignment.CenterHorizontally)
-                    .navigationBarsPadding()
-            ) {
-                        BottomNavBar()
+                item {
+                    Text(
+                        text = "Rekomendasi Barang Bekas",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        modifier = Modifier.padding(start = 16.dp),
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                data class ItemData(val judul: String, val harga: String, val lokasi: String)
+                val items = listOf(
+                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
+                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
+                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
+                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
+                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
+                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
+                    ItemData("Kulkas GG", "Rp2.000.000", "Blimbing")
+                )
+                items(items.chunked(2)) { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        rowItems.forEach { item ->
+                            CardBuilder(
+                                judul = item.judul,
+                                harga = item.harga,
+                                lokasi = item.lokasi,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .clickable { navController.navigate("search") }
+                            )
+                        }
+
+                        if (rowItems.size == 1) {
+                            Spacer(modifier = Modifier.width(150.dp))
+                        }
+                    }
+                }
             }
         }
+
+        // BottomNavBar dipastikan di bawah
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            BottomNavBar()
+        }
+    }
 }
 
 @Composable
@@ -789,7 +1010,7 @@ fun SearchScreen(navController: NavController, viewModel: RombengViewModel = vie
                     contentDescription = "Back Button",
                     contentScale = ContentScale.FillHeight,
                     modifier = Modifier
-                        .clickable{ navController.navigate("home") }
+                        .clickable { navController.navigate("home") }
                         .height(30.dp)
                 )
             }
@@ -801,6 +1022,7 @@ fun SearchScreen(navController: NavController, viewModel: RombengViewModel = vie
                 leadingIcon = Icons.Default.Search,
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
+                    .padding(bottom = 10.dp)
                     .shadow(
                         elevation = 8.dp,
                         shape = RoundedCornerShape(25.dp),
@@ -837,7 +1059,8 @@ fun SearchScreen(navController: NavController, viewModel: RombengViewModel = vie
                                 .weight(1f)
                         ) {
                             CategoryItem(category, modifier = Modifier
-                                .height(40.dp).fillMaxWidth()
+                                .height(40.dp)
+                                .fillMaxWidth()
                                 .clickable { navController.navigate("kulkasResult") }
                             )
                         }
@@ -855,6 +1078,7 @@ fun KulkasResult(navController: NavController, viewModel: RombengViewModel = vie
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
+            .navigationBarsPadding()
             .background(Color.White)
     ) {
         Row(
@@ -870,7 +1094,7 @@ fun KulkasResult(navController: NavController, viewModel: RombengViewModel = vie
                     contentDescription = "Back Button",
                     contentScale = ContentScale.FillHeight,
                     modifier = Modifier
-                        .clickable{ navController.navigate("home") }
+                        .clickable { navController.navigate("home") }
                         .height(30.dp)
                 )
             }
@@ -882,6 +1106,7 @@ fun KulkasResult(navController: NavController, viewModel: RombengViewModel = vie
                 leadingIcon = Icons.Default.Search,
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
+                    .padding(bottom = 10.dp)
                     .shadow(
                         elevation = 8.dp,
                         shape = RoundedCornerShape(25.dp),
@@ -976,8 +1201,8 @@ fun ForgotPasswordScreen(navController: NavController, viewModel: RombengViewMod
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-            .background(Color(0xFFF5F5F5))
-            .fillMaxWidth()
+                .background(Color(0xFFF5F5F5))
+                .fillMaxWidth()
 
         ) {
             Spacer(modifier = Modifier.height(20.dp))
@@ -986,7 +1211,9 @@ fun ForgotPasswordScreen(navController: NavController, viewModel: RombengViewMod
                 fontSize = 19.sp,
                 fontFamily = FontFamily.SansSerif,
                 color = Color.Black,
-                modifier = Modifier.align(Alignment.Start).padding(start = 52.dp)
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(start = 52.dp)
             )
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -1079,14 +1306,6 @@ fun ResetPasswordScreen(navController: NavController, viewModel: RombengViewMode
 
         ) {
             Spacer(modifier = Modifier.height(20.dp))
-            Text(
-                text = "Email Anda",
-                fontSize = 19.sp,
-                fontFamily = FontFamily.SansSerif,
-                color = Color.Black,
-                modifier = Modifier.align(Alignment.Start).padding(start = 52.dp)
-            )
-            Spacer(modifier = Modifier.height(10.dp))
 
             Box(
                 modifier = Modifier
@@ -1118,7 +1337,7 @@ fun ResetPasswordScreen(navController: NavController, viewModel: RombengViewMode
                 PassTextFieldBuilder(
                     value = viewModel.confPass,
                     onValueChange = { viewModel.onConfPassChange(it) },
-                    placeholder = "Masukkan Password Baru",
+                    placeholder = "Konfirmasi Password Baru",
                     leadingIcon = Icons.Default.Lock,
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
@@ -1131,7 +1350,9 @@ fun ResetPasswordScreen(navController: NavController, viewModel: RombengViewMode
 
             // Reset Password Button
             Button(
-                onClick = { navController.navigate("resetSucced") },
+                onClick = { navController.navigate("resetSucced") {
+                    popUpTo("reset") { inclusive = true }
+                } },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFFF8D21)
                 ),
@@ -1193,7 +1414,9 @@ fun ResetPasswordSuccedScreen(navController: NavController, viewModel: RombengVi
 
         Spacer(modifier = Modifier.height(40.dp))
         Button(
-            onClick = { navController.navigate("signin") },
+            onClick = { navController.navigate("signin") {
+                popUpTo("resetSucced") { inclusive = true }
+            }},
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFFF8D21)
             ),
@@ -1279,7 +1502,7 @@ fun DataViewingScreen(
                         )
 
                         Column {
-                            Text(text = user.id)
+                            Text(text = user.id.toString())
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(text = user.username, style = MaterialTheme.typography.bodyLarge)
                             Spacer(modifier = Modifier.height(4.dp))
@@ -1326,6 +1549,76 @@ fun UserDetailScreen(navController: NavController, viewModel: RombengViewModel) 
     }
 }
 
+@Composable
+fun AddUserForm(navController: NavController) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    Column(modifier = Modifier
+        .padding(16.dp)
+        .navigationBarsPadding()) {
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
+            label = { Text("Username") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                isLoading = true
+                RetrofitClient.myApi.addUser(username, password, email)
+                    .enqueue(object : Callback<AddUserResponse> {
+                        override fun onResponse(
+                            call: Call<AddUserResponse>,
+                            response: Response<AddUserResponse>
+                        ) {
+                            isLoading = false
+                            if (response.isSuccessful) {
+                                message = response.body()?.message ?: "Berhasil"
+                            } else {
+                                message = "Gagal: ${response.code()}"
+                            }
+                        }
+
+                        override fun onFailure(call: Call<AddUserResponse>, t: Throwable) {
+                            isLoading = false
+                            message = "Error: ${t.localizedMessage}"
+                        }
+                    })
+            },
+            enabled = !isLoading,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (isLoading) "Mengirim..." else "Tambah User")
+        }
+
+        message?.let {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(it, color = Color.Blue)
+        }
+    }
+}
+
 
 @Composable
 fun UpdateStatusBarColor(isLightBackground: Boolean) {
@@ -1342,6 +1635,8 @@ fun UpdateStatusBarColor(isLightBackground: Boolean) {
 fun TextFieldBuilder(
     enabled: Boolean? = true,
     value: String,
+    isError: Boolean? = false,
+    errorMessage: String? = null,
     onValueChange: (String) -> Unit,
     placeholder: String,
     colors: TextFieldColors = TextFieldDefaults.textFieldColors(
@@ -1351,10 +1646,14 @@ fun TextFieldBuilder(
         unfocusedIndicatorColor = Color.Transparent // Garis bawah saat tidak fokus
     ),
     leadingIcon: ImageVector? = null,
+    keyType: KeyboardType? = KeyboardType.Text,
     modifier: Modifier = Modifier
 ) {
     TextField(
         enabled = enabled ?: true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyType ?: KeyboardType.Text
+        ),
         value = value,
         onValueChange = onValueChange,
         placeholder = { Text(placeholder) },
@@ -1366,12 +1665,22 @@ fun TextFieldBuilder(
             .fillMaxWidth()
             .background(Color.White, shape = RoundedCornerShape(8.dp))
     )
+
+    if (isError == true) {
+        Text(
+            text = errorMessage ?: "",
+            color = Color.Red,
+            modifier = Modifier.padding(start = 16.dp)
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PassTextFieldBuilder(
     value: String,
+    isError: Boolean? = false,
+    errorMessage: String? = null,
     onValueChange: (String) -> Unit,
     placeholder: String,
     leadingIcon: ImageVector,
@@ -1402,6 +1711,13 @@ fun PassTextFieldBuilder(
             .fillMaxWidth()
             .background(Color.White, shape = RoundedCornerShape(8.dp))
     )
+    if (isError == true) {
+        Text(
+            text = errorMessage ?: "",
+            color = Color.Red,
+            modifier = Modifier.padding(start = 16.dp)
+        )
+    }
 }
 
 @Composable
@@ -1416,7 +1732,11 @@ fun BottomNavBar() {
 
     BottomNavigation(
         windowInsets = BottomNavigationDefaults.windowInsets,
-        backgroundColor = Color(0xFFFF7B34)
+        backgroundColor = Color(0xFFFF7B34),
+        modifier = Modifier
+            .navigationBarsPadding()
+            .fillMaxWidth()
+//            .align(Alignment.Bottom)
     ) {
         icons.forEachIndexed { index, (icon, description) ->
             BottomNavigationItem(
