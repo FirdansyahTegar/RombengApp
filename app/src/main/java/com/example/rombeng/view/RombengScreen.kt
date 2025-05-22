@@ -99,8 +99,17 @@ import android.widget.Toast
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.DropdownMenu
+import androidx.compose.material.TopAppBar
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.delay
 import retrofit2.Call
@@ -1904,8 +1913,9 @@ fun CategoryItem(text: String, modifier: Modifier = Modifier) {
 //    }
 //}
 
+//Upload Screen
 @Composable
-fun UploadItem(navController: NavController, viewModel: RombengViewModel = viewModel()) {
+fun UploadItemScreen(navController: NavController, viewModel: RombengViewModel = viewModel()) {
 
     // === Buat Fullscreen / Immersive Mode ===
     val view = LocalView.current
@@ -2038,9 +2048,6 @@ fun UploadItem(navController: NavController, viewModel: RombengViewModel = viewM
                 placeholder = { Text("Lokasi") },
                 modifier = Modifier.fillMaxWidth(),
             )
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Sisa kuota gratis: $remainingQuota dari 3")
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -2211,6 +2218,167 @@ fun UploadButton(
         )
     }
 }
+
+@Composable
+fun CartScreen(navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // Header
+        TopAppBar(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .fillMaxWidth(),
+            title = { Text("Keranjang", fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 20.sp) },
+            navigationIcon = {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color.Black)
+                }
+            },
+            backgroundColor = Color(0xFFFF8D21),
+            contentColor = Color.Black
+        )
+
+        // Konten Utama
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF3F3F3), RoundedCornerShape(16.dp))
+                    .padding(40.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingBag,
+                        contentDescription = "Empty Cart",
+                        modifier = Modifier.size(64.dp),
+                        tint = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Tidak ada barang dalam keranjangmu")
+                }
+            }
+        }
+
+        // Informasi Total Pembayaran & Tombol Bayar
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFF9F9F9), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .padding(16.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Sub Total", color = Color.Gray)
+                Text("Rp.0", color = Color.Gray)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Biaya Layanan", color = Color.Gray)
+                Text("Rp.0", color = Color.Gray)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Total Pembayaran", fontWeight = FontWeight.Bold)
+                Text("Rp.0", fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = { /* aksi saat klik bayar */ },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                enabled = false, // karena keranjang kosong
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFFFD4A3),
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFFFFD4A3),
+                    disabledContentColor = Color.Gray
+                )
+            ) {
+                Text("Bayar")
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileScreen(navController: NavHostController) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Top Bar
+        TopAppBar(
+            title = {
+                Text(
+                    text = "Profil",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = Color.Black
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.Black
+                    )
+                }
+            },
+            backgroundColor = Color.White,
+            contentColor = Color.Black
+        )
+
+        // Menu Items
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            ProfileMenuItem(icon = Icons.Outlined.Person, label = "Profil")
+            ProfileMenuItem(icon = Icons.Outlined.Home, label = "Alamat")
+            ProfileMenuItem(icon = Icons.Outlined.AccountBalanceWallet, label = "Pembayaran")
+            ProfileMenuItem(icon = Icons.Outlined.ChatBubbleOutline, label = "Customer Service")
+            ProfileMenuItem(icon = Icons.Outlined.Settings, label = "Pengaturan")
+        }
+    }
+}
+
+@Composable
+fun ProfileMenuItem(icon: ImageVector, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            modifier = Modifier
+                .size(40.dp)
+                .padding(end = 16.dp),
+            tint = Color.Black
+        )
+        Text(
+            text = label,
+            fontSize = 16.sp,
+            color = Color.Black
+        )
+    }
+}
+
+
 
 
 @Preview(showBackground = true)
