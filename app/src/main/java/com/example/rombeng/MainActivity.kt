@@ -69,6 +69,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import androidx.activity.viewModels
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.rombeng.viewmodel.LoginViewModel
 
 
 class MainActivity : ComponentActivity() {
@@ -76,23 +77,31 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val viewModel: RombengViewModel by viewModels()
+        val lviewModel: LoginViewModel by viewModels()
 
         setContent {
-            AppNavigator(viewModel)
+            AppNavigator(viewModel, lviewModel)
         }
     }
 
 }
 
 @Composable
-fun AppNavigator(viewModel: RombengViewModel) {
+fun AppNavigator(viewModel: RombengViewModel, lviewModel: LoginViewModel) {
     val navController = rememberNavController()
 
     // Splash logic
     LaunchedEffect(Unit) {
         delay(1000L)
-        navController.navigate("landing") {
-            popUpTo("splash") { inclusive = true }
+        if (lviewModel.isLoggedIn()) {
+            navController.navigate("home") {
+                popUpTo("splash") { inclusive = true }
+            }
+//            return@LaunchedEffect
+        } else {
+            navController.navigate("landing") {
+                popUpTo("splash") { inclusive = true }
+            }
         }
     }
 

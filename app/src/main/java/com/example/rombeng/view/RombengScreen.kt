@@ -78,6 +78,7 @@ import com.example.rombeng.viewmodel.LoginViewModel
 import android.graphics.Color as Colour
 import androidx.compose.runtime.SideEffect
 import android.app.Activity
+import android.util.Log
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -96,6 +97,12 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.example.rombeng.model.AddUserResponse
 import com.example.rombeng.viewmodel.LoginUIState
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.semantics.error
+import androidx.collection.isNotEmpty
+import com.google.android.gms.common.api.ApiException
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.DropdownMenu
@@ -255,168 +262,6 @@ fun RombengLanding(navController: NavController, viewModel: RombengViewModel = v
     }
 }
 
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun RombengLogin(
-//    navController: NavController,
-//    viewModel: LoginViewModel = viewModel(),
-//    onLoginSuccess: () -> Unit
-//) {
-//
-//
-//    val loginState by viewModel.loginResult.observeAsState(initial = LoginUIState.Idle)
-//    val isLoading by viewModel.isLoading.observeAsState(initial = false)
-//
-//
-//    LaunchedEffect(Unit) {
-//        viewModel.resetTextField()
-//    }
-//    Box(
-//        modifier = Modifier
-//            .fillMaxSize()
-//            .background(Color.White),
-//        contentAlignment = Alignment.TopCenter
-//    ) {
-//        Column(
-//            modifier = Modifier.fillMaxSize(),
-//            horizontalAlignment = Alignment.CenterHorizontally
-//        ) {
-//            Spacer(modifier = Modifier.height(44.dp))
-//
-//            // Logo dan Judul
-//            LogoRombeng()
-//
-//            Spacer(modifier = Modifier.height(40.dp))
-//
-//            // Welcome Text
-//            Text(
-//                text = "Welcome to Rombeng",
-//                fontSize = 30.sp,
-//                fontFamily = FontFamily.SansSerif,
-//                fontWeight = FontWeight.Bold,
-//                textAlign = TextAlign.Center,
-//                modifier = Modifier.fillMaxWidth()
-//            )
-//            Spacer(modifier = Modifier.height(20.dp))
-//            Text(
-//                text = "Sign in below to manage your needs",
-//                fontSize = 16.sp,
-//                fontFamily = FontFamily.SansSerif,
-//                textAlign = TextAlign.Center,
-//                modifier = Modifier.fillMaxWidth()
-//            )
-//
-//            Spacer(modifier = Modifier.height(40.dp))
-//
-//            // Input Fields
-//            Column(
-//                horizontalAlignment = Alignment.CenterHorizontally,
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .background(Color(0xFFF5F5F5))
-//                    .navigationBarsPadding()
-//
-//            ) {
-//                Spacer(modifier = Modifier.height(40.dp))
-//                TextFieldBuilder(
-//                    value = viewModel.email,
-//                    onValueChange = { viewModel.onEmailChange(it) },
-//                    placeholder = "Enter your email",
-//                    leadingIcon = Icons.Default.Email,
-//                    modifier = Modifier
-//                        .padding(horizontal = 16.dp)
-//                )
-//                Spacer(modifier = Modifier.height(10.dp))
-//                PassTextFieldBuilder(
-//                    value = viewModel.password,
-//                    onValueChange = { viewModel.onPassChange(it) },
-//                    placeholder = "Enter your password",
-//                    leadingIcon = Icons.Default.Lock,
-//                    modifier = Modifier
-//                        .padding(horizontal = 16.dp)
-//                )
-//
-//                Spacer(modifier = Modifier.height(20.dp))
-//                Text(
-//                    text = "or continue with your Google Account",
-//                    fontSize = 12.sp,
-//                    fontFamily = FontFamily.SansSerif,
-//                    textAlign = TextAlign.Center,
-//                    color = Color(0xFF6A6161),
-//                    modifier = Modifier.fillMaxWidth()
-//                )
-//
-//                Spacer(modifier = Modifier.height(20.dp))
-//
-//                // Sign In Button
-//                Button(
-//                    onClick = { navController.navigate("home") },
-//                    colors = ButtonDefaults.buttonColors(
-//                        containerColor = Color.White
-//                    ),
-//                    modifier = Modifier
-//                        .width(296.dp)
-//                        .height(67.dp),
-//                    shape = RoundedCornerShape(20.dp)
-//
-//                ) {
-//                    Row(
-//                        verticalAlignment = Alignment.CenterVertically, // Posisi vertikal rata tengah
-//                        horizontalArrangement = Arrangement.Center // Pusatkan elemen dalam Row
-//                    ) {
-//                        Image(
-//                            painter = painterResource(id = R.drawable.google_logo), // Ganti dengan ID gambar Google
-//                            contentDescription = "Google Logo",
-//                            modifier = Modifier
-//                                .size(24.dp) // Ukuran logo
-//                        )
-//                        Spacer(modifier = Modifier.width(8.dp)) // Spasi antara logo dan teks
-//                        Text(
-//                            "Login with Google",
-//                            fontSize = 20.sp,
-//                            color = Color.Black
-//                        )
-//                    }
-//                }
-//
-//                Spacer(modifier = Modifier.height(10.dp))
-//
-//                Button(
-//                    onClick = { navController.navigate("home") },
-//                    colors = ButtonDefaults.buttonColors(
-//                        containerColor = Color(0xFFFF8D21)
-//                    ),
-//                    modifier = Modifier
-//                        .width(296.dp)
-//                        .height(67.dp),
-//                    shape = RoundedCornerShape(20.dp)
-//                ) {
-//                    Text("Sign In", fontSize = 24.sp, color = Color(0xFF822900))
-//                }
-//                Spacer(modifier = Modifier.height(30.dp))
-//
-//                // Forgot Password
-//                Text(
-//                    text = "Lupa Password ?",
-//                    fontSize = 14.sp,
-//                    color = Color(0xFF6A6161),
-//                    textAlign = TextAlign.Center,
-//                    textDecoration = TextDecoration.Underline,
-//                    modifier = Modifier
-//                        .clickable {
-//                            navController.navigate("forgot")
-//                        }
-//                        .fillMaxWidth(),
-//                )
-//                Spacer(modifier = Modifier.weight(1f))
-//            }
-//
-//
-//        }
-//    }
-//}
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RombengLogin(
@@ -424,6 +269,15 @@ fun RombengLogin(
     loginViewModel: LoginViewModel = viewModel(),
     onLoginSuccess: () -> Unit
 ) {
+    val view = LocalView.current
+    LaunchedEffect(Unit) {
+        val window = (view.context as Activity).window
+        window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+//                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_VISIBLE
+                )
+    }
     val context = LocalContext.current
 
     // Mengamati LiveData dari ViewModel untuk hasil login dan status loading
@@ -448,6 +302,9 @@ fun RombengLogin(
             }
             LoginUIState.Idle -> {
                 // State awal atau netral
+            }
+            null -> {
+                // state awal sebelum ada observasi
             }
         }
     }
@@ -533,10 +390,18 @@ fun RombengLogin(
                 // Tombol Login dengan Google (sementara navigasi ke "home")
                 Button(
                     onClick = {
-                        // TODO: Implementasikan logika Login dengan Google di sini
-                        // Untuk sekarang, kita biarkan navigasi ke home atau tampilkan pesan
-                        Toast.makeText(context, "Login dengan Google belum diimplementasikan", Toast.LENGTH_SHORT).show()
-                        // navController.navigate("home") // Hapus atau sesuaikan jika belum siap
+                        val activity = context as? Activity
+                        if (activity != null) {
+                            loginViewModel.signInWithGoogle(activity)
+                        } else {
+                            // Handle kasus di mana context bukan Activity
+                            // (jarang terjadi di Composable layar penuh)
+                            Toast.makeText(
+                                context,
+                                "Tidak dapat memulai Google Sign-In",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White
@@ -617,11 +482,14 @@ fun RombengLogin(
     }
 }
 
-
-
-                @OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RombengRegister(navController: NavController, viewModel: RombengViewModel = viewModel()) {
+fun RombengRegister(
+    navController: NavController,
+    loginViewModel: LoginViewModel = viewModel(),
+    viewModel: RombengViewModel = viewModel())
+{
+
     LaunchedEffect(Unit) {
         viewModel.resetTextField()
     }
@@ -660,7 +528,7 @@ fun RombengRegister(navController: NavController, viewModel: RombengViewModel = 
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(50.dp))
+            Spacer(modifier = Modifier.height(25.dp))
 
             // Input Fields
             Column(
@@ -737,7 +605,7 @@ fun RombengRegister(navController: NavController, viewModel: RombengViewModel = 
                         .clip(shape = RoundedCornerShape(10.dp))
                 )
 
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Sign In Button
                 Button(
@@ -753,7 +621,7 @@ fun RombengRegister(navController: NavController, viewModel: RombengViewModel = 
                 ) {
                     Text("Sign Up", fontSize = 20.sp, color = Color(0xFF822900))
                 }
-                Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
 
                 if (viewModel.error or viewModel.succes) {
@@ -775,7 +643,131 @@ fun RombengRegister(navController: NavController, viewModel: RombengViewModel = 
                     }
                 }
 
-                Spacer(modifier = Modifier.height(30.dp))
+                val context = LocalContext.current
+                // SERVER_CLIENT_ID Anda, idealnya diambil dari strings.xml
+                val serverClientId = context.getString(R.string.your_web_client_id)
+
+                // Mengamati state dari ViewModel
+                val isLoading = viewModel.Loading
+                val message = viewModel.message
+                val isError = viewModel.error
+                val isSuccess = viewModel.succes
+                val isRegButtonEnabled = viewModel.regButton
+
+                // Mengamati IntentSenderRequest untuk Google Sign-In
+                val googleSignInIntentSender by viewModel.googleSignInIntentSender.collectAsState()
+
+                // Launcher untuk hasil Google Sign-In
+                val googleSignInLauncher =
+                    rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartIntentSenderForResult()
+                ) { result ->
+                    if (result.resultCode == Activity.RESULT_OK) {
+                        try {
+                            viewModel.handleGoogleSignUpResult(result.data)
+                        } catch (e: ApiException) {
+                            Log.e("RegisterScreen", "Google Sign-In failed after activity result: ${e.localizedMessage}")
+                            // ViewModel sudah menangani ini, tapi bisa ditambahkan logging tambahan jika perlu
+                        }
+                    } else {
+                        // Pengguna mungkin membatalkan atau ada error lain
+                        Log.w("RegisterScreen", "Google Sign-In canceled or failed. Result code: ${result.resultCode}")
+                        // ViewModel akan menangani CommonStatusCodes.CANCELED jika itu kasusnya
+                        // Jika tidak, pastikan ViewModel mereset state loading/button jika perlu
+                        if (result.resultCode != Activity.RESULT_CANCELED) {
+                            viewModel.message = "Proses Google Sign-In tidak berhasil."
+                            viewModel.error = true // Set error jika bukan pembatalan eksplisit
+                        }
+                        viewModel.Loading = false
+                        viewModel.regButton = true
+                        viewModel.consumeGoogleSignInIntent() // Pastikan intent dikonsumsi
+                    }
+                }
+
+                // LaunchedEffect untuk meluncurkan dialog Google Sign-In ketika intent sender tersedia
+                LaunchedEffect(googleSignInIntentSender) {
+                    googleSignInIntentSender?.let { intentSenderRequest ->
+                        googleSignInLauncher.launch(intentSenderRequest)
+                        // Penting: Konsumsi intent setelah diluncurkan agar tidak ter-trigger lagi
+                        // ViewModel Anda mungkin sudah melakukan ini, atau Anda bisa melakukannya di sini
+                        // rombengViewModel.consumeGoogleSignInIntent() // Panggil jika ViewModel tidak otomatis meresetnya
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        // Panggil fungsi beginGoogleSignUp dari ViewModel
+                        // Pastikan activity yang valid diteruskan.
+                        // Dalam Composable, LocalContext.current biasanya adalah Activity.
+                        val activity = context as? Activity
+                        if (activity != null) {
+                            if (serverClientId == "MASUKKAN_SERVER_CLIENT_ID_ANDA_DISINI") {
+                                viewModel.message = "Client ID Google belum dikonfigurasi."
+                                viewModel.error = true
+                            } else {
+                                viewModel.beginGoogleSignUp(activity, serverClientId)
+                            }
+                        } else {
+                            Log.e("RegisterScreen", "Context bukan Activity, tidak bisa memulai Google Sign-Up")
+                            viewModel.message = "Tidak bisa memulai Google Sign-Up saat ini."
+                            viewModel.error = true
+                        }
+                    },
+                    enabled = isRegButtonEnabled,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .width(256.dp)
+                        .height(67.dp),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.google_logo), // Pastikan resource ada
+                            contentDescription = "Google Logo",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Login with Google",
+                            fontSize = 20.sp,
+                            color = Color.Black
+                        )
+                    }
+
+                    if (isLoading) {
+                        CircularProgressIndicator()
+                    }
+
+                    if (message.isNotEmpty()) {
+                        Text(
+                            text = message,
+                            color = if (isError) MaterialTheme.colorScheme.error else if (isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Contoh navigasi setelah sukses (jika diperlukan)
+                    if (isSuccess) {
+                        LaunchedEffect(Unit) {
+                            // Lakukan navigasi atau tindakan lain setelah registrasi sukses
+                            // Misalnya: navController.navigate("login_screen") { popUpTo("register_screen") { inclusive = true } }
+                            Log.i("RegisterScreen", "Registrasi sukses, pesan: $message")
+                            navController.navigate("signin") { // Ganti "signin" dengan route screen login Anda
+                                popUpTo("RombengRegister") { // Ganti "register_screen" dengan route screen registrasi Anda
+                                    inclusive = true
+                            // Anda mungkin ingin mereset state di ViewModel setelah beberapa saat atau saat navigasi
+                            // rombengViewModel.resetAuthStates()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
                 Text(
                     text = "Sudah Memiliki Akun ?",
                     fontSize = 14.sp,
@@ -797,7 +789,7 @@ fun RombengRegister(navController: NavController, viewModel: RombengViewModel = 
 }
 
 @Composable
-fun HomeScreen(navController: NavController, viewModel: RombengViewModel = viewModel()) {
+fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewModel()) {
 
     // === Buat Fullscreen / Immersive Mode ===
     val view = LocalView.current
@@ -811,6 +803,7 @@ fun HomeScreen(navController: NavController, viewModel: RombengViewModel = viewM
     }
 
     var showExitDialog by remember { mutableStateOf(false) }
+    var showLogOutDialog by remember { mutableStateOf(false) }
 
     BackHandler {
         showExitDialog = true
@@ -848,18 +841,47 @@ fun HomeScreen(navController: NavController, viewModel: RombengViewModel = viewM
 
             LazyColumn(modifier = Modifier.weight(1f)) {
                 item {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color.White)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween, // Menyebarkan ruang di antara item
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // App Title & Logo
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, bottom = 10.dp)
-                        ) {
-                            LogoRombeng()
+                        // App Title & Logo di kiri
+                        LogoRombeng()
+
+                        // Icon di kanan
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Logout",
+                            modifier = Modifier.clickable { showLogOutDialog = true }
+                        )
+
+                        if (showLogOutDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showLogOutDialog = false },
+                                title = { Text("Log Out") },
+                                text = { Text("Apakah Anda yakin ingin log out?") },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            viewModel.logout()
+                                            navController.navigate("signin") {
+                                                popUpTo("home") { inclusive = true }
+                                                }
+                                            }
+                                        ) {
+                                        Text("Ya")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showLogOutDialog = false }) {
+                                        Text("Tidak")
+                                    }
+                                }
+                            )
                         }
                     }
                     // Search Bar

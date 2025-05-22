@@ -1,13 +1,16 @@
 package com.example.rombeng.viewmodel // Sesuaikan dengan package Anda
 
+import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import android.util.Patterns
+import androidx.activity.result.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.credentials.CredentialManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -19,6 +22,16 @@ import com.example.rombeng.model.User
 import com.example.rombeng.repository.UserRepository
 import com.example.rombeng.service.RetrofitClient
 import kotlinx.coroutines.launch
+import androidx.credentials.exceptions.*
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.CreateCredentialCancellationException
+import androidx.credentials.exceptions.CreateCredentialInterruptedException
+//import androidx.credentials.exceptions.GetCredentialException
+//import androidx.credentials.exceptions.NoCredentialException
+//import androidx.credentials.exceptions.
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import java.io.IOException // Untuk menangani network error
 
 // Konstanta untuk SharedPreferences
@@ -203,7 +216,89 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             null
         }
     }
+
+    // ... di dalam ViewModel atau class yang menangani login
+
+    // Ganti dengan Web Client ID yang Anda dapatkan dari Google Cloud Console
+    private val credentialManager: CredentialManager = CredentialManager.create(application.applicationContext)
+    private val SERVER_CLIENT_ID = "320775573686-hl6iggdinfkb999bqq2mmk9mqm7o2m5t.apps.googleusercontent.com"
+//    private val credentialManager = CredentialManager
+    // Fungsi untuk memulai alur Sign-In dengan Google
+    fun signInWithGoogle(activity: Activity) { // Anda memerlukan Activity untuk meluncurkan UI
+        val googleIdOption: com.google.android.libraries.identity.googleid.GetGoogleIdOption =
+            com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(false) // false untuk menampilkan semua akun Google di perangkat
+                .setServerClientId(SERVER_CLIENT_ID)
+                // .setAutoSelectEnabled(true) // Aktifkan untuk auto sign-in jika memungkinkan
+                // .setNonce("YOUR_NONCE_STRING") // Opsional: Untuk replay protection, harus diverifikasi di server Anda
+                .build()
+
+        val request: GetCredentialRequest = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        viewModelScope.launch {
+            try {
+                val result = credentialManager.getCredential(activity, request) // credentialManager adalah instance dari CredentialManager
+                // Tangani hasil kredensial
+                handleGoogleSignInResult(result.credential)
+            } catch (e: GetCredentialException) {
+                // Tangani error
+                handleGoogleSignInError(e)
+            }
+        }
+    }
+
+    private fun handleGoogleSignInResult(credential: androidx.credentials.Credential) {
+        when (credential) {
+            is com.google.android.libraries.identity.googleid.GoogleIdTokenCredential -> {
+                val googleIdToken = credential.idToken
+                val displayName = credential.displayName
+                val email = credential.id // Email pengguna
+                val profilePictureUri = credential.profilePictureUri
+
+                Log.d("GoogleSignIn", "ID Token: $googleIdToken")
+                Log.d("GoogleSignIn", "Display Name: $displayName")
+                Log.d("GoogleSignIn", "Email: $email")
+                Log.d("GoogleSignIn", "Profile Picture URI: $profilePictureUri")
+
+                // TODO: Kirim ID Token ke backend Anda untuk verifikasi dan autentikasi
+                // Setelah backend memverifikasi token dan membuat sesi/mengembalikan token aplikasi Anda,
+                // lanjutkan dengan alur login aplikasi Anda.
+                // _loginResult.value = LoginUIState.Success("Login Google berhasil", User(email, displayName, ...))
+            }
+            else -> {
+                Log.e("GoogleSignIn", "Received unsupported credential type")
+                // _loginResult.value = LoginUIState.Error("Tipe kredensial tidak didukung.")
+            }
+        }
+    }
+
+    private fun handleGoogleSignInError(e: GetCredentialException) {
+        when (e) {
+//            is UserCancelledException -> Log.d(
+//                "GoogleSignIn", "User cancelled the sign-in flow.")
+            is NoCredentialException -> {
+                Log.e("GoogleSignIn", "No credential found.", e)
+                // _loginResult.value = LoginUIState.Error("Tidak ada akun Google yang ditemukan atau dipilih.")
+            }
+//            // Tangani jenis error spesifik lainnya dari GetCredentialException
+//            is CreateCredentialCancellationException -> Log.d("GoogleSignIn", "User cancelled the sign-up flow.")
+//            is CreateCredentialInterruptedException -> Log.e("GoogleSignIn", "Sign-up flow interrupted.", e)
+//            // ... dan seterusnya
+            else -> {
+                Log.e("GoogleSignIn", "Google Sign-In failed", e)
+                // _loginResult.value = LoginUIState.Error("Login Google gagal: ${e.message}")
+            }
+        }
+    }
+
+    // Anda perlu instance CredentialManager. Anda bisa mendapatkannya dari context.
+    // private val credentialManager = CredentialManager.create(applicationContext)
+    // Jika di ViewModel, Anda bisa menggunakan application.applicationContext
 }
+
+
 
 // Sealed class/interface untuk merepresentasikan state UI login
 sealed class LoginUIState {
@@ -213,3 +308,5 @@ sealed class LoginUIState {
     object LoggedOut : LoginUIState() // State setelah logout
     // Anda bisa menambahkan state lain jika perlu, misalnya Loading, Idle
 }
+
+
