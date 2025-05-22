@@ -96,7 +96,12 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.example.rombeng.model.AddUserResponse
 import com.example.rombeng.viewmodel.LoginUIState
 import android.widget.Toast
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.DropdownMenu
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.delay
 import retrofit2.Call
 import retrofit2.Callback
@@ -984,7 +989,7 @@ fun HomeScreen(navController: NavController, viewModel: RombengViewModel = viewM
 
         // BottomNavBar dipastikan di bawah
         Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            BottomNavBar()
+            BottomNavBar(navController)
         }
     }
 }
@@ -1721,38 +1726,56 @@ fun PassTextFieldBuilder(
 }
 
 @Composable
-fun BottomNavBar() {
-    var selectedIndex by remember { mutableStateOf(0) }
-    val icons = listOf(
-        Icons.Default.Home to "Home",
-        Icons.Default.Add to "Add",
-        Icons.Default.ShoppingCart to "ShoppingCart",
-        Icons.Default.Person to "User"
+fun BottomNavBar(navController: NavController) {
+    val items = listOf(
+        BottomNavItem("home", Icons.Default.Home, "Home"),
+        BottomNavItem("upload", Icons.Default.Add, "Add"),
+        BottomNavItem("cart", Icons.Default.ShoppingCart, "Cart"),
+        BottomNavItem("profile", Icons.Default.Person, "Profile")
     )
 
+    // Ambil route saat ini
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
     BottomNavigation(
-        windowInsets = BottomNavigationDefaults.windowInsets,
         backgroundColor = Color(0xFFFF7B34),
         modifier = Modifier
             .navigationBarsPadding()
             .fillMaxWidth()
-//            .align(Alignment.Bottom)
     ) {
-        icons.forEachIndexed { index, (icon, description) ->
+        items.forEach { item ->
             BottomNavigationItem(
                 icon = {
                     Icon(
-                        icon,
-                        contentDescription = description,
-                        tint = if (selectedIndex == index) Color.White else Color.Black
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        tint = if (currentRoute == item.route) Color.White else Color.Black
                     )
                 },
-                selected = selectedIndex == index,
-                onClick = { selectedIndex = index }
+                selected = currentRoute == item.route,
+                onClick = {
+                    if (currentRoute != item.route) {
+                        navController.navigate(item.route) {
+                            // Hindari banyak tumpukan duplikat
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                }
             )
         }
     }
 }
+
+data class BottomNavItem(
+    val route: String,
+    val icon: ImageVector,
+    val label: String
+)
 
 @Composable
 fun CardBuilder(judul: String, harga: String, lokasi: String, modifier: Modifier = Modifier) {
@@ -1880,6 +1903,315 @@ fun CategoryItem(text: String, modifier: Modifier = Modifier) {
 //        }
 //    }
 //}
+
+@Composable
+fun UploadItem(navController: NavController, viewModel: RombengViewModel = viewModel()) {
+
+    // === Buat Fullscreen / Immersive Mode ===
+    val view = LocalView.current
+    LaunchedEffect(Unit) {
+        val window = (view.context as Activity).window
+        window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+//                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                )
+    }
+
+    var judul by remember { mutableStateOf("") }
+    var harga by remember { mutableStateOf("") }
+    var deskripsi by remember { mutableStateOf("") }
+    var lokasi by remember { mutableStateOf("") }
+    var currentPhotoCount by remember { mutableStateOf(0) }
+    val maxPhoto = 4
+    val remainingQuota = 0
+
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    BackHandler {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        val activity = LocalActivity.current
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Keluar Aplikasi") },
+            text = { Text("Apakah Anda yakin ingin keluar?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    activity?.finish()
+                }) {
+                    Text("Ya")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text("Tidak")
+                }
+            }
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .systemBarsPadding()
+    ) {
+        // Layout Utama
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            // Gambar Upload Placeholder
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFEFEFEF))
+                    .clickable {
+                        if (currentPhotoCount <= maxPhoto) currentPhotoCount++
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Tambah Foto",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Photo: $currentPhotoCount/5")
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Judul
+            OutlinedTextField(
+                value = judul,
+                onValueChange = { judul = it },
+                placeholder = { Text("Judul") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Harga
+            OutlinedTextField(
+                value = harga,
+                onValueChange = { harga = it },
+                placeholder = { Text("Harga") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Kategori Dropdown
+            Column(modifier = Modifier.fillMaxWidth()) {
+                KategoriDropdown()
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Deskripsi
+            OutlinedTextField(
+                value = deskripsi,
+                onValueChange = { deskripsi = it },
+                placeholder = { Text("Deskripsi") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Lokasi
+            OutlinedTextField(
+                value = lokasi,
+                onValueChange = { lokasi = it },
+                placeholder = { Text("Lokasi") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("Sisa kuota gratis: $remainingQuota dari 3")
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Tombol Unggah
+            UploadButton(
+                remainingQuota = remainingQuota,
+                judul = judul,
+                harga = harga,
+                lokasi = lokasi,
+                onNavigateToPembayaran = {
+                    navController.navigate("pembayaran")
+                }
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+
+
+        // BottomNavBar dipastikan di bawah
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            BottomNavBar(navController)
+        }
+    }
+
+}
+
+@Composable
+fun KategoriDropdown() {
+    // Kategori dalam format List<List<String>>
+    val categories = listOf(
+        listOf("Elektronik", "Furniture", "Kendaraan", "Material Bangunan"),
+    )
+
+    // Ratakan list ke satu dimensi
+    val flatCategories = categories.flatten()
+
+    // State untuk dropdown
+    var expanded by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf("Pilih Kategori") }
+
+    Box {
+        OutlinedTextField(
+            value = selectedCategory,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = true },
+            trailingIcon = {
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = null
+                )
+            },
+            placeholder = { Text("Kategori") }
+        )
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            flatCategories.forEach { category ->
+                DropdownMenuItem(
+                    onClick = {
+                        selectedCategory = category
+                        expanded = false
+                    },
+                    text = { Text(category) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UploadButton(
+    remainingQuota: Int,
+    judul: String,
+    harga: String,
+    lokasi: String,
+    onNavigateToPembayaran: () -> Unit
+) {
+    val context = LocalContext.current
+    var showQuotaDialog by remember { mutableStateOf(false) }
+
+    Column {
+        // Tampilkan info kuota
+        Text(
+            text = "Sisa kuota gratis: $remainingQuota dari 3",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.DarkGray,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Tombol unggah
+        Button(
+            onClick = {
+                if (remainingQuota == 0) {
+                    showQuotaDialog = true
+                } else if (judul.isBlank() || harga.isBlank() || lokasi.isBlank()) {
+                    Toast.makeText(
+                        context,
+                        "Semua kolom wajib diisi!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Barang berhasil diunggah!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    // Upload logic here
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFF8D21),
+                contentColor = Color(0xFF822900)
+            ),
+        ) {
+            Text("Unggah", color = Color.White)
+        }
+    }
+
+    // Dialog jika kuota habis
+    if (showQuotaDialog) {
+        AlertDialog(
+            containerColor = Color.White,
+            onDismissRequest = { showQuotaDialog = false },
+            title = { Text("Kuota Habis") },
+            text = { Text("Kuota gratis Anda sudah habis. Untuk mengunggah barang ini, Anda akan dikenakan biaya Rp250.") },
+            confirmButton = {
+                TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF8D21),
+                        contentColor = Color(0xFF822900)
+                    ),
+                    onClick = {
+                        showQuotaDialog = false
+                        onNavigateToPembayaran()
+                    }
+
+                ) {
+                    Text("Bayar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF3D3D),
+                        contentColor = Color(0xFF7A0000)
+                    ),
+                    onClick = { showQuotaDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+}
+
 
 @Preview(showBackground = true)
 @Composable

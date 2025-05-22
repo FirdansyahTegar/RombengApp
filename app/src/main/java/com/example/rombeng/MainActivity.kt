@@ -110,6 +110,7 @@ fun AppNavigator(viewModel: RombengViewModel) {
         ) }
         composable("addUser") { AddUserForm(navController) }
         composable("home") { HomeScreen(navController) }
+        composable("upload") { UploadItem(navController) }
         composable("forgot") { ForgotPasswordScreen(navController) }
         composable("reset") { ResetPasswordScreen(navController) }
         composable("resetSucced") { ResetPasswordSuccedScreen(navController) }
