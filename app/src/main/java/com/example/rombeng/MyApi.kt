@@ -1,6 +1,7 @@
 package com.example.rombeng
 
 import com.example.rombeng.model.AddUserResponse
+import com.example.rombeng.model.GoogleRegisterRequest
 import com.example.rombeng.model.LoginRequest
 import com.example.rombeng.model.LoginResponse
 import com.example.rombeng.model.User
@@ -8,6 +9,7 @@ import retrofit2.http.GET
 import retrofit2.Call
 import retrofit2.Response
 import retrofit2.http.*
+
 
 interface MyApi {
     @GET("get_users.php")
@@ -20,7 +22,12 @@ interface MyApi {
         @Field("username") username: String,
         @Field("encrypted_password") encrypted_password: String,
         @Field("email") email: String
-    ): Call<AddUserResponse>
+    ): Call<AddUserResponse> //Call
+
+    @POST("add_users.php") // Endpoint yang sama jika add_users.php menangani keduanya
+    fun registerWithGoogle(
+        @Body request: GoogleRegisterRequest
+    ): Call<AddUserResponse> // Bisa menggunakan AddUserResponse yang sama jika strukturnya cocok
 
     @POST("login.php")
     suspend fun loginUser(
