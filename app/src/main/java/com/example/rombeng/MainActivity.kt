@@ -122,6 +122,8 @@ fun AppNavigator(viewModel: RombengViewModel, lviewModel: LoginViewModel) {
         composable("upload") { UploadItemScreen(navController) }
         composable("cart") { CartScreen(navController) }
         composable("profile") { ProfileScreen(navController) }
+        composable("paymentList") { PaymentListScreen(navController) }
+        composable("addressList"){ AddressListScreen(navController) }
         composable("forgot") { ForgotPasswordScreen(navController) }
         composable("reset") { ResetPasswordScreen(navController) }
         composable("resetSucced") { ResetPasswordSuccedScreen(navController) }
@@ -142,6 +144,8 @@ fun AppNavigator(viewModel: RombengViewModel, lviewModel: LoginViewModel) {
             UserDetailScreen(navController = navController, viewModel = viewModel)
         }
         composable("kulkasResult") { KulkasResult(navController) }
+
+
     }
 }
 
