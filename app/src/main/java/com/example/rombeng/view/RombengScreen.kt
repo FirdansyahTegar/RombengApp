@@ -106,8 +106,17 @@ import com.google.android.gms.common.api.ApiException
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.DropdownMenu
+import androidx.compose.material.TopAppBar
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.delay
 import retrofit2.Call
@@ -1926,168 +1935,6 @@ fun CategoryItem(text: String, modifier: Modifier = Modifier) {
 //    }
 //}
 
-@Composable
-fun UploadItem(navController: NavController, viewModel: RombengViewModel = viewModel()) {
-
-    // === Buat Fullscreen / Immersive Mode ===
-    val view = LocalView.current
-    LaunchedEffect(Unit) {
-        val window = (view.context as Activity).window
-        window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-//                        or View.SYSTEM_UI_FLAG_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                )
-    }
-
-    var judul by remember { mutableStateOf("") }
-    var harga by remember { mutableStateOf("") }
-    var deskripsi by remember { mutableStateOf("") }
-    var lokasi by remember { mutableStateOf("") }
-    var currentPhotoCount by remember { mutableStateOf(0) }
-    val maxPhoto = 4
-    val remainingQuota = 0
-
-    var showExitDialog by remember { mutableStateOf(false) }
-
-    BackHandler {
-        showExitDialog = true
-    }
-
-    if (showExitDialog) {
-        val activity = LocalActivity.current
-        AlertDialog(
-            onDismissRequest = { showExitDialog = false },
-            title = { Text("Keluar Aplikasi") },
-            text = { Text("Apakah Anda yakin ingin keluar?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    activity?.finish()
-                }) {
-                    Text("Ya")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text("Tidak")
-                }
-            }
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .systemBarsPadding()
-    ) {
-        // Layout Utama
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-
-            // Gambar Upload Placeholder
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFEFEFEF))
-                    .clickable {
-                        if (currentPhotoCount <= maxPhoto) currentPhotoCount++
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Tambah Foto",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Photo: $currentPhotoCount/5")
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Judul
-            OutlinedTextField(
-                value = judul,
-                onValueChange = { judul = it },
-                placeholder = { Text("Judul") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Harga
-            OutlinedTextField(
-                value = harga,
-                onValueChange = { harga = it },
-                placeholder = { Text("Harga") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Kategori Dropdown
-            Column(modifier = Modifier.fillMaxWidth()) {
-                KategoriDropdown()
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Deskripsi
-            OutlinedTextField(
-                value = deskripsi,
-                onValueChange = { deskripsi = it },
-                placeholder = { Text("Deskripsi") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Lokasi
-            OutlinedTextField(
-                value = lokasi,
-                onValueChange = { lokasi = it },
-                placeholder = { Text("Lokasi") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Sisa kuota gratis: $remainingQuota dari 3")
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Tombol Unggah
-            UploadButton(
-                remainingQuota = remainingQuota,
-                judul = judul,
-                harga = harga,
-                lokasi = lokasi,
-                onNavigateToPembayaran = {
-                    navController.navigate("pembayaran")
-                }
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-
-
-        // BottomNavBar dipastikan di bawah
-        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            BottomNavBar(navController)
-        }
-    }
-
-}
 
 @Composable
 fun KategoriDropdown() {
@@ -2233,6 +2080,16 @@ fun UploadButton(
         )
     }
 }
+
+
+@Composable
+fun UserProfile(){
+
+}
+
+
+
+
 
 
 @Preview(showBackground = true)
