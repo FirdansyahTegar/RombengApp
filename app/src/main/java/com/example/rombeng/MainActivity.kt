@@ -124,6 +124,7 @@ fun AppNavigator(viewModel: RombengViewModel, lviewModel: LoginViewModel) {
         composable("profile") { ProfileScreen(navController) }
         composable("paymentList") { PaymentListScreen(navController) }
         composable("addressList"){ AddressListScreen(navController) }
+        composable("userProfile") { UserProfileScreen(navController) }
         composable("forgot") { ForgotPasswordScreen(navController) }
         composable("reset") { ResetPasswordScreen(navController) }
         composable("resetSucced") { ResetPasswordSuccedScreen(navController) }
