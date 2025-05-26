@@ -39,11 +39,21 @@ import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.SignInClient
 import android.app.Activity
+import android.app.Application
 import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.text.input.delete
 import com.example.rombeng.model.GoogleRegisterRequest
+import android.provider.OpenableColumns
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 
 
@@ -358,6 +368,14 @@ class RombengViewModel : ViewModel() {
     fun consumeGoogleSignInIntent() {
         _googleSignInIntentSender.value = null
     }
+
+
+    private val _uploadStatus = MutableLiveData<String>()
+    val uploadStatus: LiveData<String> = _uploadStatus
+
+    private val apiService = RetrofitClient.myApi
+
+
 
 
 //    suspend fun hasInternetConnection(context: Context): Boolean {

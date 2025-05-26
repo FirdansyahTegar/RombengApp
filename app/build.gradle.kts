@@ -67,6 +67,10 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
+    implementation("androidx.activity:activity-compose:1.9.0") // Atau versi terbaru
+    implementation("androidx.compose.ui:ui:1.6.7") // Atau versi terbaru
+    implementation("androidx.compose.material3:material3:1.2.1")
+    implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.compose.runtime:runtime-livedata:1.7.8")
     implementation("androidx.compose.material:material:1.7.8")

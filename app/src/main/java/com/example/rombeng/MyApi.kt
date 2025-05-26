@@ -5,6 +5,9 @@ import com.example.rombeng.model.GoogleRegisterRequest
 import com.example.rombeng.model.LoginRequest
 import com.example.rombeng.model.LoginResponse
 import com.example.rombeng.model.User
+import com.google.firebase.appdistribution.gradle.models.UploadResponse
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.GET
 import retrofit2.Call
 import retrofit2.Response
@@ -33,6 +36,13 @@ interface MyApi {
     suspend fun loginUser(
         @Body loginRequest: LoginRequest
     ): Response<LoginResponse>
+
+    @Multipart // Menandakan bahwa request ini adalah multipart (untuk upload file)
+    @POST("upload_api.php") // Sesuaikan dengan path ke file PHP Anda
+    suspend fun uploadImage(
+        @Part image: MultipartBody.Part, // Bagian file gambar
+        @Part("description") description: RequestBody? = null // Contoh data tambahan (opsional)
+    ): Response<UploadResponse> // Menggunakan Response<T> untuk mendapatkan detail HTTP
 }
 
 
