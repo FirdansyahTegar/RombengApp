@@ -1,123 +1,108 @@
 package com.example.rombeng.view
 
-import androidx.compose.ui.text.input.KeyboardType.*
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.Image
+import android.app.Activity
+import android.net.Uri
+import android.util.Log
 import android.view.View
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.launch
+import androidx.collection.isNotEmpty // Kemungkinan tidak terpakai, periksa penggunaan
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+//import androidx.compose.foundation.layout.FlowRowScopeInstance.align
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
-import androidx.activity.compose.BackHandler
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Alignment.Horizontal
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable // Kemungkinan tidak terpakai, periksa penggunaan
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.BottomNavigation
-import androidx.compose.material.BottomNavigationDefaults
-import androidx.compose.material.BottomNavigationItem
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldState // Kemungkinan tidak terpakai, periksa penggunaan
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.BottomNavigation // Material 2, pertimbangkan migrasi ke Material 3 NavigationBar
+import androidx.compose.material.BottomNavigationDefaults // Material 2
+import androidx.compose.material.BottomNavigationItem // Material 2
+import androidx.compose.material.DropdownMenu // Material 2, pertimbangkan Material 3 DropdownMenu
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.* // Pertimbangkan untuk mengimpor ikon secara spesifik jika tidak semua dipakai
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem // Material 3
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldColors // Kemungkinan tidak terpakai, periksa penggunaan
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.motionEventSpy
+import androidx.compose.ui.input.pointer.motionEventSpy // Kemungkinan tidak terpakai, periksa penggunaan
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.error // Kemungkinan tidak terpakai, periksa penggunaan
+import androidx.compose.ui.semantics.semantics // Kemungkinan tidak terpakai, periksa penggunaan
 import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat // Kemungkinan tidak terpakai, periksa penggunaan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.rombeng.model.User
-import com.example.rombeng.service.RetrofitClient
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.example.rombeng.R
 import com.example.rombeng.viewmodel.RombengViewModel
 import com.example.rombeng.viewmodel.LoginViewModel
 import android.graphics.Color as Colour
 import androidx.compose.runtime.SideEffect
-import android.app.Activity
-import android.util.Log
-import androidx.activity.compose.LocalActivity
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import com.example.rombeng.model.AddUserResponse
+import com.example.rombeng.model.User
+import com.example.rombeng.service.RetrofitClient
 import com.example.rombeng.viewmodel.LoginUIState
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.semantics.error
-import androidx.collection.isNotEmpty
-import com.google.android.gms.common.api.ApiException
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.TopAppBar
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.currentBackStackEntryAsState
+import com.google.android.gms.common.api.ApiException // Kemungkinan tidak terpakai, periksa penggunaan
 import kotlinx.coroutines.delay
 import retrofit2.Call
 import retrofit2.Callback
@@ -799,15 +784,17 @@ fun RombengRegister(
 
 @Composable
 fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewModel()) {
+    UpdateStatusBarColor(true)
 
     // === Buat Fullscreen / Immersive Mode ===
     val view = LocalView.current
+
     LaunchedEffect(Unit) {
         val window = (view.context as Activity).window
         window.decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 //                        or View.SYSTEM_UI_FLAG_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+//                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 )
     }
 
@@ -1023,6 +1010,223 @@ fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewMod
             BottomNavBar(navController)
         }
     }
+}
+
+@Composable
+fun UploadItem(navController: NavController, viewModel: RombengViewModel = viewModel()) {
+
+    // === Buat Fullscreen / Immersive Mode ===
+    val view = LocalView.current
+    LaunchedEffect(Unit) {
+        val window = (view.context as Activity).window
+        window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+//                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+//                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                )
+    }
+
+    var judul by remember { mutableStateOf("") }
+    var harga by remember { mutableStateOf("") }
+    var deskripsi by remember { mutableStateOf("") }
+    var lokasi by remember { mutableStateOf("") }
+    var currentPhotoCount by remember { mutableStateOf(0) }
+    val maxPhoto = 4
+    val remainingQuota = 3 //get value dari db
+
+    var imageUrisForApi by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+
+    // Kontrak Activity Result untuk Photo Picker
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri: Uri? ->
+            selectedImageUri = uri
+        }
+    )
+
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    BackHandler {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        val activity = LocalActivity.current
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Keluar Aplikasi") },
+            text = { Text("Apakah Anda yakin ingin keluar?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    activity?.finish()
+                }) {
+                    Text("Ya")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text("Tidak")
+                }
+            }
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .systemBarsPadding()
+    ) {
+        // Layout Utama
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+//                        .clip(RoundedCornerShape(12.dp))
+//                        .background(Color(0xFFEFEFEF))
+//                        .clickable {
+//                            if (currentPhotoCount <= maxPhoto) {
+//                                currentPhotoCount++
+//                                photoPickerLauncher.launch(
+//                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+//                                )
+//                            }
+//                        },
+                    contentAlignment = Alignment.Center
+                ) {
+//                    Icon(
+//                        imageVector = Icons.Default.Add,
+//                        contentDescription = "Tambah Foto",
+//                        tint = Color.Gray,
+//                        modifier = Modifier.size(36.dp)
+//                    )
+
+                    MultipleImagePickerRow(
+                        maxImages = 5,
+                        onImageUrisChanged = { uris ->
+                            imageUrisForApi = uris
+                            // Di sini Anda bisa langsung memproses URI jika perlu,
+                            // atau tunggu sampai tombol "Simpan" ditekan.
+                            println("URI gambar yang dipilih: $uris")
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    selectedImageUri?.let { uri ->
+                        Image(
+                            painter = rememberAsyncImagePainter(
+                                ImageRequest.Builder(context)
+                                    .data(uri)
+                                    .crossfade(true)
+                                    .build()
+                            ),
+                            contentDescription = "Gambar yang Dipilih",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp), // Atur ukuran sesuai kebutuhan
+                            contentScale = ContentScale.Crop // Atau ContentScale.Fit
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("URI Gambar: $uri")
+                    }
+                }
+            }
+            // Gambar Upload Placeholder
+
+
+//            Spacer(modifier = Modifier.height(12.dp))
+//            Text("Photo: $currentPhotoCount/5")
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Judul
+            OutlinedTextField(
+                value = judul,
+                onValueChange = { judul = it },
+                placeholder = { Text("Judul") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Harga
+            OutlinedTextField(
+                value = harga,
+                onValueChange = { harga = it },
+                placeholder = { Text("Harga") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Kategori Dropdown
+            Column(modifier = Modifier.fillMaxWidth()) {
+                KategoriDropdown()
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Deskripsi
+            OutlinedTextField(
+                value = deskripsi,
+                onValueChange = { deskripsi = it },
+                placeholder = { Text("Deskripsi") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Lokasi
+            OutlinedTextField(
+                value = lokasi,
+                onValueChange = { lokasi = it },
+                placeholder = { Text("Lokasi") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("Sisa kuota gratis: $remainingQuota dari 3")
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Tombol Unggah
+            UploadButton(
+                remainingQuota = remainingQuota,
+                judul = judul,
+                harga = harga,
+                lokasi = lokasi,
+                onNavigateToPembayaran = {
+                    navController.navigate("pembayaran")
+                }
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+
+
+        // BottomNavBar dipastikan di bawah
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            BottomNavBar(navController)
+        }
+    }
+
 }
 
 @Composable
@@ -1661,7 +1865,7 @@ fun UpdateStatusBarColor(isLightBackground: Boolean) {
     val view = LocalView.current
     SideEffect {
         val window = (view.context as Activity).window
-        window.statusBarColor = if (isLightBackground) Colour.WHITE else Colour.BLACK //warna bg putih/hitam
+        window.statusBarColor = if (isLightBackground) Color.White.toArgb() else Color.Black.toArgb() //warna bg putih/hitam
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = isLightBackground //warna ikon light/dark
     }
 }
@@ -1881,61 +2085,6 @@ fun CategoryItem(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun SimpleSearchBar(
-//    textFieldState: TextFieldState,
-//    onSearch: (String) -> Unit,
-//    searchResults: List<String>,
-//    modifier: Modifier = Modifier
-//) {
-//    // Controls expansion state of the search bar
-//    var expanded by rememberSaveable { mutableStateOf(false) }
-//
-//    Box(
-//        modifier
-//            .fillMaxSize()
-//            .semantics { isTraversalGroup = true }
-//    ) {
-//        SearchBar(
-//            modifier = Modifier
-//                .align(Alignment.TopCenter)
-//                .semantics { traversalIndex = 0f },
-//            inputField = {
-//                SearchBarDefaults.InputField(
-//                    query = textFieldState.text.toString(),
-//                    onQueryChange = { textFieldState.edit { replace(0, length, it) } },
-//                    onSearch = {
-//                        onSearch(textFieldState.text.toString())
-//                        expanded = false
-//                    },
-//                    expanded = expanded,
-//                    onExpandedChange = { expanded = it },
-//                    placeholder = { Text("Search") }
-//                )
-//            },
-//            expanded = expanded,
-//            onExpandedChange = { expanded = it },
-//        ) {
-//            // Display search results in a scrollable column
-//            Column(Modifier.verticalScroll(rememberScrollState())) {
-//                searchResults.forEach { result ->
-//                    ListItem(
-//                        headlineContent = { Text(result) },
-//                        modifier = Modifier
-//                            .clickable {
-//                                textFieldState.edit { replace(0, length, result) }
-//                                expanded = false
-//                            }
-//                            .fillMaxWidth()
-//                    )
-//                }
-//            }
-//        }
-//    }
-//}
-
-
 @Composable
 fun KategoriDropdown() {
     // Kategori dalam format List<List<String>>
@@ -1961,7 +2110,8 @@ fun KategoriDropdown() {
             trailingIcon = {
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = null
+                    contentDescription = null,
+                    modifier = Modifier.clickable { expanded = true }
                 )
             },
             placeholder = { Text("Kategori") }
@@ -1985,6 +2135,195 @@ fun KategoriDropdown() {
 }
 
 @Composable
+fun MultipleImagePickerRow(
+    maxImages: Int = 5,
+    onImageUrisChanged: (List<Uri>) -> Unit // Callback untuk mengirim list URI
+) {
+    var selectedImageUris by remember { mutableStateOf(listOf<Uri>()) }
+    val context = LocalContext.current
+    var uriToDisplayInDialog by remember { mutableStateOf<Uri?>(null) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = maxImages), // Menggunakan PickMultipleVisualMedia
+        onResult = { uris: List<Uri> ->
+            // Tambahkan URI baru ke daftar yang sudah ada, pastikan tidak melebihi maxImages
+            val currentSize = selectedImageUris.size
+            val remainingSlots = maxImages - currentSize
+            if (uris.isNotEmpty() && remainingSlots > 0) {
+                selectedImageUris = selectedImageUris + uris.take(remainingSlots)
+                onImageUrisChanged(selectedImageUris) // Panggil callback
+            }
+        }
+    )
+
+    // Launcher untuk memilih satu gambar jika pengguna mengklik placeholder "Tambah"
+    // dan sudah ada beberapa gambar yang dipilih.
+    val singlePhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri: Uri? ->
+            if (uri != null && selectedImageUris.size < maxImages) {
+                selectedImageUris = selectedImageUris + uri
+                onImageUrisChanged(selectedImageUris) // Panggil callback
+            }
+        }
+    )
+
+    val editOverwriteLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxImages),
+        onResult = { uris: List<Uri> ->
+            // Langsung ganti semua URI yang dipilih dengan yang baru
+            selectedImageUris = uris.take(maxImages) // Pastikan tidak melebihi maxImages
+            onImageUrisChanged(selectedImageUris)
+        }
+    )
+
+    val editFirstImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri: Uri? ->
+            if (uri != null && selectedImageUris.isNotEmpty()) {
+                val newList = selectedImageUris.toMutableList()
+                newList[0] = uri // Ganti URI gambar pertama
+                selectedImageUris = newList
+                onImageUrisChanged(selectedImageUris)
+            }
+        }
+    )
+
+    Column (horizontalAlignment = Alignment.CenterHorizontally){ // Tambahkan Column jika Anda ingin teks di bawah LazyRow
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp) // Jarak antar item
+        ) {
+            // Tampilkan gambar yang sudah dipilih
+            items(selectedImageUris) { uri ->
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFEFEFEF))
+                        .clickable { uriToDisplayInDialog = uri }
+                ) {
+                    Image(
+                        painter = rememberAsyncImagePainter(
+                            ImageRequest.Builder(context)
+                                .data(uri)
+                                .crossfade(true)
+                                .build()
+                        ),
+                        contentDescription = "Gambar yang Dipilih",
+                        modifier = Modifier.fillMaxSize(), // Fill Box
+                        contentScale = ContentScale.Crop
+                    )
+                    // Anda bisa menambahkan tombol hapus di sini jika diperlukan
+                }
+            }
+
+            // Tampilkan placeholder "Tambah Foto" jika masih ada slot
+            if (selectedImageUris.size < maxImages) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFEFEFEF))
+                            .clickable {
+                                if (selectedImageUris.isEmpty()) {
+                                    // Jika belum ada gambar, gunakan PickMultipleVisualMedia
+                                    // Anda bisa mengatur maxItems di sini sesuai sisa slot jika mau
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                } else {
+                                    // Jika sudah ada gambar, gunakan PickVisualMedia untuk menambah satu per satu
+                                    singlePhotoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Tambah Foto",
+                            tint = Color.Gray,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+            }
+        }
+        // Opsional: Tampilkan jumlah gambar yang dipilih
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Gambar dipilih: ${selectedImageUris.size}/$maxImages",
+                fontSize = 14.sp
+            )
+            if (selectedImageUris.isNotEmpty()) { // Tampilkan "Edit Gambar" hanya jika ada gambar
+                Text(
+                    text = "Edit Gambar",
+                    color = Color(0xFFFF8D21),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clickable {
+                        // Saat ini, kita akan mengedit gambar pertama yang dipilih
+                        // Anda bisa menambahkan logika lebih lanjut untuk memilih gambar mana yang akan diedit
+                        if (selectedImageUris.isNotEmpty()) {
+                            editOverwriteLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    uriToDisplayInDialog?.let { uri ->
+        Dialog(onDismissRequest = { uriToDisplayInDialog = null }) { // Gunakan Dialog Composable
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f) // Mengisi 90% lebar layar
+                    .fillMaxHeight(0.7f) // Mengisi 70% tinggi layar
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        ImageRequest.Builder(context)
+                            .data(uri)
+                            .crossfade(true)
+                            .build()
+                    ),
+                    contentDescription = "Gambar Diperbesar",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentScale = ContentScale.Fit // Agar seluruh gambar terlihat
+                )
+                IconButton(
+                    onClick = { uriToDisplayInDialog = null },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Tutup Dialog",
+                        tint = Color.Black
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun UploadButton(
     remainingQuota: Int,
     judul: String,
@@ -1997,24 +2336,24 @@ fun UploadButton(
 
     Column {
         // Tampilkan info kuota
-        Text(
-            text = "Sisa kuota gratis: $remainingQuota dari 3",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.DarkGray,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+//        Text(
+//            text = "Sisa kuota gratis: $remainingQuota dari 3",
+//            style = MaterialTheme.typography.bodyMedium,
+//            color = Color.DarkGray,
+//            modifier = Modifier.padding(bottom = 8.dp)
+//        )
 
         // Tombol unggah
         Button(
             onClick = {
-                if (remainingQuota == 0) {
+                if (judul.isBlank() || harga.isBlank() || lokasi.isBlank()) {
+                Toast.makeText(
+                    context,
+                    "Semua kolom wajib diisi!",
+                    Toast.LENGTH_SHORT
+                ).show()
+                } else if (remainingQuota == 0) {
                     showQuotaDialog = true
-                } else if (judul.isBlank() || harga.isBlank() || lokasi.isBlank()) {
-                    Toast.makeText(
-                        context,
-                        "Semua kolom wajib diisi!",
-                        Toast.LENGTH_SHORT
-                    ).show()
                 } else {
                     Toast.makeText(
                         context,
@@ -2082,18 +2421,63 @@ fun UploadButton(
 }
 
 
-@Composable
-fun UserProfile(){
-
-}
-
-
-
+//@Preview(showBackground = true)
+//@Composable
+//fun RombengPreview() {
+////    RombengLanding()
+//}
 
 
-
-@Preview(showBackground = true)
-@Composable
-fun RombengPreview() {
-//    RombengLanding()
-}
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//fun SimpleSearchBar(
+//    textFieldState: TextFieldState,
+//    onSearch: (String) -> Unit,
+//    searchResults: List<String>,
+//    modifier: Modifier = Modifier
+//) {
+//    // Controls expansion state of the search bar
+//    var expanded by rememberSaveable { mutableStateOf(false) }
+//
+//    Box(
+//        modifier
+//            .fillMaxSize()
+//            .semantics { isTraversalGroup = true }
+//    ) {
+//        SearchBar(
+//            modifier = Modifier
+//                .align(Alignment.TopCenter)
+//                .semantics { traversalIndex = 0f },
+//            inputField = {
+//                SearchBarDefaults.InputField(
+//                    query = textFieldState.text.toString(),
+//                    onQueryChange = { textFieldState.edit { replace(0, length, it) } },
+//                    onSearch = {
+//                        onSearch(textFieldState.text.toString())
+//                        expanded = false
+//                    },
+//                    expanded = expanded,
+//                    onExpandedChange = { expanded = it },
+//                    placeholder = { Text("Search") }
+//                )
+//            },
+//            expanded = expanded,
+//            onExpandedChange = { expanded = it },
+//        ) {
+//            // Display search results in a scrollable column
+//            Column(Modifier.verticalScroll(rememberScrollState())) {
+//                searchResults.forEach { result ->
+//                    ListItem(
+//                        headlineContent = { Text(result) },
+//                        modifier = Modifier
+//                            .clickable {
+//                                textFieldState.edit { replace(0, length, result) }
+//                                expanded = false
+//                            }
+//                            .fillMaxWidth()
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}
