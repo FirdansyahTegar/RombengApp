@@ -65,7 +65,7 @@ fun ProfileScreen(navController: NavHostController) {
             ProfileMenuItem(
                 icon = Icons.Outlined.Person,
                 label = "Profil",
-                onClick = { navController.navigate("profilDetail") }
+                onClick = { navController.navigate("userProfile") }
             )
             ProfileMenuItem(
                 icon = Icons.Outlined.Home,

@@ -2,6 +2,7 @@ package com.example.rombeng.view
 
 import android.app.Activity
 import android.view.View
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
@@ -15,13 +16,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.DropdownMenu
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -198,5 +207,158 @@ fun UploadItemScreen(navController: NavController, viewModel: RombengViewModel =
             BottomNavBar(navController)
         }
     }
+}
 
+@Composable
+fun KategoriDropdown() {
+    val categories = listOf(
+        "Elektronik",
+        "Furniture",
+        "Kendaraan",
+        "Material Bangunan",
+        "Lainnya"
+    )
+
+    var expanded by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf("") }
+
+    // Gunakan Box dengan alignment agar DropdownMenu muncul di bawah
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentSize(Alignment.TopStart)
+    ) {
+        OutlinedTextField(
+            value = selectedCategory,
+            onValueChange = {}, // Tidak bisa diedit langsung
+            readOnly = true,
+            label = { Text("Kategori") },
+            trailingIcon = {
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                    modifier = Modifier.clickable { expanded = !expanded }
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+        )
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+        ) {
+            categories.forEach { category ->
+                DropdownMenuItem(
+                    text = { Text(category) },
+                    onClick = {
+                        selectedCategory = category
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UploadButton(
+    remainingQuota: Int,
+    judul: String,
+    harga: String,
+    lokasi: String,
+    onNavigateToPembayaran: () -> Unit
+) {
+    val context = LocalContext.current
+    var showQuotaDialog by remember { mutableStateOf(false) }
+
+    Column {
+        // Tampilkan info kuota
+        Text(
+            text = "Sisa kuota gratis: $remainingQuota dari 3",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.DarkGray,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Tombol unggah
+        Button(
+            onClick = {
+                if (remainingQuota == 0) {
+                    showQuotaDialog = true
+                } else if (judul.isBlank() || harga.isBlank() || lokasi.isBlank()) {
+                    Toast.makeText(
+                        context,
+                        "Semua kolom wajib diisi!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Barang berhasil diunggah!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    // Upload logic here
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFF8D21),
+                contentColor = Color(0xFF822900)
+            ),
+        ) {
+            Text("Unggah", color = Color.White)
+        }
+    }
+
+    // Dialog jika kuota habis
+    if (showQuotaDialog) {
+        AlertDialog(
+            containerColor = Color.White,
+            onDismissRequest = { showQuotaDialog = false },
+            title = { Text("Kuota Habis") },
+            text = { Text("Kuota gratis Anda sudah habis. Untuk mengunggah barang ini, Anda akan dikenakan biaya Rp250.") },
+            confirmButton = {
+                TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF8D21),
+                        contentColor = Color(0xFF822900)
+                    ),
+                    onClick = {
+                        showQuotaDialog = false
+                        onNavigateToPembayaran()
+                    }
+
+                ) {
+                    Text("Bayar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF3D3D),
+                        contentColor = Color(0xFF7A0000)
+                    ),
+                    onClick = { showQuotaDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 }
