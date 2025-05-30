@@ -119,7 +119,7 @@ fun AppNavigator(viewModel: RombengViewModel, lviewModel: LoginViewModel) {
         ) }
         composable("addUser") { AddUserForm(navController) }
         composable("home") { HomeScreen(navController) }
-        composable("upload") { UploadItemScreen(navController) }
+        composable("upload") { UploadItem(navController) }
         composable("cart") { CartScreen(navController) }
         composable("profile") { ProfileScreen(navController) }
         composable("paymentList") { PaymentListScreen(navController) }

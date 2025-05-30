@@ -1,6 +1,7 @@
 package com.example.rombeng.view
 
 import android.app.Activity
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import android.view.View
@@ -18,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.size
 //import androidx.compose.foundation.layout.FlowRowScopeInstance.align
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,23 +36,7 @@ import androidx.compose.material.BottomNavigationItem // Material 2
 import androidx.compose.material.DropdownMenu // Material 2, pertimbangkan Material 3 DropdownMenu
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.* // Pertimbangkan untuk mengimpor ikon secara spesifik jika tidak semua dipakai
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem // Material 3
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldColors // Kemungkinan tidak terpakai, periksa penggunaan
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -98,15 +84,26 @@ import com.example.rombeng.viewmodel.RombengViewModel
 import com.example.rombeng.viewmodel.LoginViewModel
 import android.graphics.Color as Colour
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isEmpty
+import androidx.compose.ui.window.DialogProperties
 import com.example.rombeng.model.AddUserResponse
 import com.example.rombeng.model.User
 import com.example.rombeng.service.RetrofitClient
 import com.example.rombeng.viewmodel.LoginUIState
+import com.example.rombeng.viewmodel.UpImgViewModel
+import com.example.rombeng.viewmodel.UploadResult
 import com.google.android.gms.common.api.ApiException // Kemungkinan tidak terpakai, periksa penggunaan
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.io.File
+import java.io.FileOutputStream
 
 var isErrorName by mutableStateOf(false)
 var isErrorEmail by mutableStateOf(false)
@@ -1012,74 +1009,106 @@ fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewMod
     }
 }
 
+
 @Composable
-fun UploadItem(navController: NavController, viewModel: RombengViewModel = viewModel()) {
-
-    // === Buat Fullscreen / Immersive Mode ===
+fun UploadItem(
+    navController: NavController,
+    upImgViewModel: UpImgViewModel = viewModel(),
+    rombengViewModel: RombengViewModel = viewModel() // Pastikan RombengViewModel di-provide dengan benar
+) {
     val view = LocalView.current
-    LaunchedEffect(Unit) {
-        val window = (view.context as Activity).window
-        window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-//                        or View.SYSTEM_UI_FLAG_FULLSCREEN
-//                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                )
-    }
-
-    var judul by remember { mutableStateOf("") }
-    var harga by remember { mutableStateOf("") }
-    var deskripsi by remember { mutableStateOf("") }
-    var lokasi by remember { mutableStateOf("") }
-    var currentPhotoCount by remember { mutableStateOf(0) }
-    val maxPhoto = 4
-    val remainingQuota = 3 //get value dari db
-
-    var imageUrisForApi by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
 
-    // Kontrak Activity Result untuk Photo Picker
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri: Uri? ->
-            selectedImageUri = uri
+    LaunchedEffect(Unit) {
+        val window = (view.context as Activity).window
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+    }
+
+    var judul by rememberSaveable { mutableStateOf("") }
+    var harga by rememberSaveable { mutableStateOf("") }
+    var deskripsi by rememberSaveable { mutableStateOf("") }
+    var lokasi by rememberSaveable { mutableStateOf("") }
+    var selectedKategori by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Menggunakan List<String> untuk menyimpan path file gambar
+    var imageFilePathsToUpload by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+
+    // Kembali menggunakan List<Uri> untuk MultipleImagePickerRow
+    var urisToUpload by rememberSaveable(stateSaver = listUriSaver()) { mutableStateOf<List<Uri>>(emptyList()) }
+
+    val uploadState by upImgViewModel.uploadStatus.observeAsState(initial = UploadResult.Idle)
+    val isFormValid2 by remember(judul, harga, lokasi, imageFilePathsToUpload, selectedKategori) {
+        derivedStateOf {
+            judul.isNotBlank() &&
+                    harga.isNotBlank() &&
+                    harga.all { it.isDigit() }  &&
+                    lokasi.isNotBlank() &&
+                    imageFilePathsToUpload.isNotEmpty() &&
+                    selectedKategori != null && selectedKategori!!.isNotBlank()
         }
-    )
+    }
+
+//    val isFormValid by remember(judul, harga, lokasi, urisToUpload, selectedKategori) {
+//        derivedStateOf {
+//            val judulValid = judul.isNotBlank()
+//            val hargaNotBlank = harga.isNotBlank()
+//            val hargaIsDigit = harga.all { it.isDigit() } // Ini adalah kandidat potensial
+//            val lokasiValid = lokasi.isNotBlank()
+//            val urisValid = urisToUpload.isNotEmpty()
+//            val kategoriValid = selectedKategori != null && selectedKategori!!.isNotBlank()
+//            val result = judulValid &&
+//                    hargaNotBlank &&
+//                    hargaIsDigit &&     // Perhatikan ini
+//                    lokasiValid &&
+//                    urisValid &&
+//                    kategoriValid
+//        }
+//    }
+
+    val remainingQuota = 3
 
     var showExitDialog by remember { mutableStateOf(false) }
-
     BackHandler {
         showExitDialog = true
     }
-
     if (showExitDialog) {
-        val activity = LocalActivity.current
-        AlertDialog(
-            onDismissRequest = { showExitDialog = false },
-            title = { Text("Keluar Aplikasi") },
-            text = { Text("Apakah Anda yakin ingin keluar?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    activity?.finish()
-                }) {
-                    Text("Ya")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text("Tidak")
-                }
-            }
+        ExitConfirmationDialog(
+            onConfirm = { (context as? Activity)?.finish() },
+            onDismiss = { showExitDialog = false }
         )
+    }
+
+    LaunchedEffect(uploadState) {
+        when (val result = uploadState) {
+            is UploadResult.Loading -> {
+                // UI akan menampilkan CircularProgressIndicator
+            }
+            is UploadResult.Success -> {
+                Toast.makeText(context, result.data.message ?: "Upload berhasil", Toast.LENGTH_LONG).show()
+                judul = ""
+                harga = ""
+                deskripsi = ""
+                lokasi = ""
+                selectedKategori = null
+                urisToUpload = emptyList() // Reset list URI
+                upImgViewModel.resetUploadStatus()
+            }
+            is UploadResult.Error -> {
+                Toast.makeText(context, "Error: ${result.message}", Toast.LENGTH_LONG).show()
+                upImgViewModel.resetUploadStatus()
+            }
+            is UploadResult.Idle -> {
+                // Idle state
+            }
+        }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .systemBarsPadding()
     ) {
-        // Layout Utama
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1087,147 +1116,130 @@ fun UploadItem(navController: NavController, viewModel: RombengViewModel = viewM
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+//            Text("Unggah Barang Bekasmu", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 16.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-//                        .clip(RoundedCornerShape(12.dp))
-//                        .background(Color(0xFFEFEFEF))
-//                        .clickable {
-//                            if (currentPhotoCount <= maxPhoto) {
-//                                currentPhotoCount++
-//                                photoPickerLauncher.launch(
-//                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-//                                )
-//                            }
-//                        },
-                    contentAlignment = Alignment.Center
-                ) {
-//                    Icon(
-//                        imageVector = Icons.Default.Add,
-//                        contentDescription = "Tambah Foto",
-//                        tint = Color.Gray,
-//                        modifier = Modifier.size(36.dp)
-//                    )
-
-                    MultipleImagePickerRow(
-                        maxImages = 5,
-                        onImageUrisChanged = { uris ->
-                            imageUrisForApi = uris
-                            // Di sini Anda bisa langsung memproses URI jika perlu,
-                            // atau tunggu sampai tombol "Simpan" ditekan.
-                            println("URI gambar yang dipilih: $uris")
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    selectedImageUri?.let { uri ->
-                        Image(
-                            painter = rememberAsyncImagePainter(
-                                ImageRequest.Builder(context)
-                                    .data(uri)
-                                    .crossfade(true)
-                                    .build()
-                            ),
-                            contentDescription = "Gambar yang Dipilih",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(300.dp), // Atur ukuran sesuai kebutuhan
-                            contentScale = ContentScale.Crop // Atau ContentScale.Fit
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("URI Gambar: $uri")
-                    }
+            // Menggunakan MultipleImagePickerRow Anda
+            MultipleImagePickerRow(
+                maxImages = 5,
+                // initialFilePaths = imageFilePathsToUpload, // Jika ingin mempertahankan state dari luar
+                onImageFilePathsChanged = { newPaths ->
+                    imageFilePathsToUpload = newPaths
                 }
+                // context = context // Tidak perlu jika sudah LocalContext.current di dalam MultipleImagePickerRow
+            )
+            if (imageFilePathsToUpload.isEmpty() && uploadState !is UploadResult.Loading) {
+                Text(
+                    "Pilih minimal 1 gambar",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
-            // Gambar Upload Placeholder
-
-
-//            Spacer(modifier = Modifier.height(12.dp))
-//            Text("Photo: $currentPhotoCount/5")
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Judul
-            OutlinedTextField(
-                value = judul,
-                onValueChange = { judul = it },
-                placeholder = { Text("Judul") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Harga
-            OutlinedTextField(
-                value = harga,
-                onValueChange = { harga = it },
-                placeholder = { Text("Harga") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Kategori Dropdown
-            Column(modifier = Modifier.fillMaxWidth()) {
-                KategoriDropdown()
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Deskripsi
-            OutlinedTextField(
-                value = deskripsi,
-                onValueChange = { deskripsi = it },
-                placeholder = { Text("Deskripsi") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Lokasi
-            OutlinedTextField(
-                value = lokasi,
-                onValueChange = { lokasi = it },
-                placeholder = { Text("Lokasi") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Sisa kuota gratis: $remainingQuota dari 3")
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Tombol Unggah
-            UploadButton(
-                remainingQuota = remainingQuota,
-                judul = judul,
-                harga = harga,
-                lokasi = lokasi,
-                onNavigateToPembayaran = {
-                    navController.navigate("pembayaran")
-                }
+            OutlinedTextField(
+                value = judul,
+                onValueChange = { judul = it },
+                label = { Text("Judul Barang") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = judul.isBlank() && uploadState is UploadResult.Loading // Contoh validasi sederhana
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = harga,
+                onValueChange = { harga = if (it.all { char -> char.isDigit() }) it else harga },
+                label = { Text("Harga (Rp)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                isError = (harga.isBlank() || !harga.all { it.isDigit() }) && uploadState is UploadResult.Loading
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            KategoriDropdown(
+                selectedKategori = selectedKategori,
+                onKategoriSelected = { kategori -> selectedKategori = kategori },
+                isError = selectedKategori == null && uploadState is UploadResult.Loading
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = deskripsi,
+                onValueChange = { deskripsi = it },
+                label = { Text("Deskripsi (Opsional)") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 100.dp, max = 200.dp),
+                maxLines = 5
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = lokasi,
+                onValueChange = {
+                    lokasi = it
+                },
+                label = { Text("Lokasi (Kota/Daerah)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = lokasi.isBlank() && uploadState is UploadResult.Loading
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                "Sisa kuota unggah gratis: $remainingQuota dari 3",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (uploadState is UploadResult.Loading) {
+                CircularProgressIndicator(modifier = Modifier.padding(bottom = 16.dp))
+            } else {
+                UploadButton(
+                    remainingQuota = remainingQuota,
+                    isFormValid = isFormValid2,
+                    onUploadClick = {
+                        if (isFormValid2) {
+                            // Panggil fungsi ViewModel dengan List<String> path file
+                            upImgViewModel.uploadImagesFromPaths( // Anda perlu membuat fungsi ini di ViewModel
+                                context = context, // Mungkin tidak lagi dibutuhkan jika path sudah absolut
+                                imageFilePaths = imageFilePathsToUpload,
+                                judul = judul, // Teruskan data lain jika ViewModel Anda menerimanya
+                                harga = harga,
+                                kategori = selectedKategori!!,
+                                deskripsi = deskripsi,
+                                lokasi = lokasi
+                            )
+                        } else {
+                            Toast.makeText(context, "Harap lengkapi semua data yang diperlukan dan pilih minimal satu gambar.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onNavigateToPembayaran = {
+                        navController.navigate("paymentList")
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(64.dp))
         }
 
-
-        // BottomNavBar dipastikan di bawah
         Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            BottomNavBar(navController)
+            BottomNavBar(navController = navController)
         }
     }
-
 }
+
+// Pastikan listUriSaver ada jika belum
+@Composable
+fun listUriSaver() = Saver<List<Uri>, List<String>>(
+    save = { list -> list.map { it.toString() } },
+    restore = { list -> list.map { Uri.parse(it) } }
+)
 
 @Composable
 fun SearchScreen(navController: NavController, viewModel: RombengViewModel = viewModel()) {
@@ -2085,49 +2097,44 @@ fun CategoryItem(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KategoriDropdown() {
-    // Kategori dalam format List<List<String>>
-    val categories = listOf(
-        listOf("Elektronik", "Furniture", "Kendaraan", "Material Bangunan"),
-    )
-
-    // Ratakan list ke satu dimensi
-    val flatCategories = categories.flatten()
-
-    // State untuk dropdown
+fun KategoriDropdown(
+    selectedKategori: String?,
+    onKategoriSelected: (String) -> Unit,
+    isError: Boolean = false
+) {
+    val kategoriList = listOf("Elektronik", "Fashion", "Rumah Tangga", "Hobi", "Lainnya")
     var expanded by remember { mutableStateOf(false) }
-    var selectedCategory by remember { mutableStateOf("Pilih Kategori") }
 
-    Box {
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth()
+    ) {
         OutlinedTextField(
-            value = selectedCategory,
-            onValueChange = {},
+            value = selectedKategori ?: "Pilih Kategori",
+            onValueChange = {}, // Tidak perlu diubah langsung
             readOnly = true,
+            label = { Text("Kategori") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = true },
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                    modifier = Modifier.clickable { expanded = true }
-                )
-            },
-            placeholder = { Text("Kategori") }
+                .menuAnchor()
+                .fillMaxWidth(),
+            isError = isError
         )
-
-        DropdownMenu(
+        ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            flatCategories.forEach { category ->
+            kategoriList.forEach { kategori ->
                 DropdownMenuItem(
+                    text = { Text(kategori) },
                     onClick = {
-                        selectedCategory = category
+                        onKategoriSelected(kategori)
                         expanded = false
-                    },
-                    text = { Text(category) }
+
+                    }
                 )
             }
         }
@@ -2136,34 +2143,58 @@ fun KategoriDropdown() {
 
 @Composable
 fun MultipleImagePickerRow(
+    modifier: Modifier = Modifier,
     maxImages: Int = 5,
-    onImageUrisChanged: (List<Uri>) -> Unit // Callback untuk mengirim list URI
+    // initialFilePaths: List<String> = emptyList(), // Ganti initialUris dengan initialFilePaths
+    onImageFilePathsChanged: (List<String>) -> Unit,
+    // Tambahkan ViewModel atau context jika perlu untuk operasi file
+    context: Context = LocalContext.current // Atau teruskan dari Composable induk
 ) {
-    var selectedImageUris by remember { mutableStateOf(listOf<Uri>()) }
-    val context = LocalContext.current
-    var uriToDisplayInDialog by remember { mutableStateOf<Uri?>(null) }
+    // Simpan path file, bukan URI
+    var selectedImageFilePaths by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var uriToDisplayInDialog by remember { mutableStateOf<Uri?>(null) } // Untuk dialog, URI masih ok
 
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = maxImages), // Menggunakan PickMultipleVisualMedia
+    val canAddMoreImages = selectedImageFilePaths.size < maxImages
+
+    // Fungsi untuk menyalin URI ke file cache dan mengembalikan path-nya
+    fun copyUriToInternalCache(uri: Uri): String? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val fileName = "img_${System.currentTimeMillis()}_${uri.lastPathSegment ?: "temp"}"
+            val file = File(context.cacheDir, fileName)
+            val outputStream = FileOutputStream(file)
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+            file.absolutePath
+        } catch (e: Exception) {
+            Log.e("ImagePicker", "Error copying URI to cache: ${e.message}")
+            null
+        }
+    }
+    val upImgViewModel: UpImgViewModel = viewModel()
+    val multiplePhotoPickerLauncher = rememberLauncherForActivityResult(
+//        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = maxImages - selectedImageFilePaths.size),
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = maxImages),
         onResult = { uris: List<Uri> ->
-            // Tambahkan URI baru ke daftar yang sudah ada, pastikan tidak melebihi maxImages
-            val currentSize = selectedImageUris.size
-            val remainingSlots = maxImages - currentSize
-            if (uris.isNotEmpty() && remainingSlots > 0) {
-                selectedImageUris = selectedImageUris + uris.take(remainingSlots)
-                onImageUrisChanged(selectedImageUris) // Panggil callback
+            if (uris.isNotEmpty()) {
+                upImgViewModel.processAndCacheUris(uris, selectedImageFilePaths, maxImages, context) { updatedPaths ->
+                    selectedImageFilePaths = updatedPaths
+                    onImageFilePathsChanged(updatedPaths)
+                }
             }
         }
     )
 
-    // Launcher untuk memilih satu gambar jika pengguna mengklik placeholder "Tambah"
-    // dan sudah ada beberapa gambar yang dipilih.
     val singlePhotoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri: Uri? ->
-            if (uri != null && selectedImageUris.size < maxImages) {
-                selectedImageUris = selectedImageUris + uri
-                onImageUrisChanged(selectedImageUris) // Panggil callback
+            if (uri != null && canAddMoreImages) {
+                copyUriToInternalCache(uri)?.let { filePath ->
+                    val updatedPaths = (selectedImageFilePaths + filePath).distinct().take(maxImages)
+                    selectedImageFilePaths = updatedPaths
+                    onImageFilePathsChanged(updatedPaths)
+                }
             }
         }
     )
@@ -2171,55 +2202,72 @@ fun MultipleImagePickerRow(
     val editOverwriteLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxImages),
         onResult = { uris: List<Uri> ->
-            // Langsung ganti semua URI yang dipilih dengan yang baru
-            selectedImageUris = uris.take(maxImages) // Pastikan tidak melebihi maxImages
-            onImageUrisChanged(selectedImageUris)
+            val newFilePaths = uris.mapNotNull { copyUriToInternalCache(it) }
+            val updatedPaths = newFilePaths.distinct().take(maxImages)
+            selectedImageFilePaths = updatedPaths
+            onImageFilePathsChanged(updatedPaths)
         }
     )
 
-    val editFirstImageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri: Uri? ->
-            if (uri != null && selectedImageUris.isNotEmpty()) {
-                val newList = selectedImageUris.toMutableList()
-                newList[0] = uri // Ganti URI gambar pertama
-                selectedImageUris = newList
-                onImageUrisChanged(selectedImageUris)
-            }
-        }
-    )
-
-    Column (horizontalAlignment = Alignment.CenterHorizontally){ // Tambahkan Column jika Anda ingin teks di bawah LazyRow
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp) // Jarak antar item
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Tampilkan gambar yang sudah dipilih
-            items(selectedImageUris) { uri ->
+            items(selectedImageFilePaths, key = { it }) { filePath ->
+                val imageUri = Uri.fromFile(File(filePath)) // Buat URI dari path untuk Coil
                 Box(
                     modifier = Modifier
                         .size(100.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFFEFEFEF))
-                        .clickable { uriToDisplayInDialog = uri }
+                        .clickable { uriToDisplayInDialog = imageUri } // Tampilkan URI di dialog
                 ) {
                     Image(
                         painter = rememberAsyncImagePainter(
                             ImageRequest.Builder(context)
-                                .data(uri)
+                                .data(imageUri) // Gunakan URI dari path file
                                 .crossfade(true)
+//                                .size(Size(100.dp.toPx().toInt(), 100.dp.toPx().toInt())) // Minta Coil untuk resize
+                                .error(android.R.drawable.ic_menu_gallery)
                                 .build()
                         ),
                         contentDescription = "Gambar yang Dipilih",
-                        modifier = Modifier.fillMaxSize(), // Fill Box
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
-                    // Anda bisa menambahkan tombol hapus di sini jika diperlukan
+                    val scope = rememberCoroutineScope()
+                    IconButton(
+                        onClick = {
+                            val newList = selectedImageFilePaths.toMutableList()
+                            if (newList.remove(filePath)) {
+                                // Hapus file dari cache di background thread
+                                scope.launch(Dispatchers.IO) { // Gunakan scope yang sesuai
+                                    try {
+                                        File(filePath).delete()
+                                    } catch (e: Exception) {
+                                        Log.e("ImagePicker", "Error deleting cached file: $filePath, ${e.message}")
+                                    }
+                                }
+                            }
+                            selectedImageFilePaths = newList
+                            onImageFilePathsChanged(newList)
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(24.dp)
+                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(50))
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Hapus gambar", tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
 
-            // Tampilkan placeholder "Tambah Foto" jika masih ada slot
-            if (selectedImageUris.size < maxImages) {
+            if (canAddMoreImages) {
                 item {
                     Box(
                         modifier = Modifier
@@ -2227,14 +2275,12 @@ fun MultipleImagePickerRow(
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFFEFEFEF))
                             .clickable {
-                                if (selectedImageUris.isEmpty()) {
-                                    // Jika belum ada gambar, gunakan PickMultipleVisualMedia
-                                    // Anda bisa mengatur maxItems di sini sesuai sisa slot jika mau
-                                    photoPickerLauncher.launch(
+                                val remainingSlots = maxImages - selectedImageFilePaths.size
+                                if (remainingSlots > 1 || selectedImageFilePaths.isEmpty()) {
+                                    multiplePhotoPickerLauncher.launch(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                     )
-                                } else {
-                                    // Jika sudah ada gambar, gunakan PickVisualMedia untuk menambah satu per satu
+                                } else if (remainingSlots == 1) {
                                     singlePhotoPickerLauncher.launch(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                     )
@@ -2252,7 +2298,6 @@ fun MultipleImagePickerRow(
                 }
             }
         }
-        // Opsional: Tampilkan jumlah gambar yang dipilih
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2260,35 +2305,32 @@ fun MultipleImagePickerRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Gambar dipilih: ${selectedImageUris.size}/$maxImages",
+                text = "Gambar dipilih: ${selectedImageFilePaths.size}/$maxImages",
                 fontSize = 14.sp
             )
-            if (selectedImageUris.isNotEmpty()) { // Tampilkan "Edit Gambar" hanya jika ada gambar
+            if (selectedImageFilePaths.isNotEmpty()) {
                 Text(
                     text = "Edit Gambar",
                     color = Color(0xFFFF8D21),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.clickable {
-                        // Saat ini, kita akan mengedit gambar pertama yang dipilih
-                        // Anda bisa menambahkan logika lebih lanjut untuk memilih gambar mana yang akan diedit
-                        if (selectedImageUris.isNotEmpty()) {
-                            editOverwriteLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        }
+                        editOverwriteLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
                     }
                 )
             }
         }
     }
 
-    uriToDisplayInDialog?.let { uri ->
-        Dialog(onDismissRequest = { uriToDisplayInDialog = null }) { // Gunakan Dialog Composable
+    uriToDisplayInDialog?.let { uriForDialog -> // URI dari path file untuk dialog
+        Dialog(onDismissRequest = { uriToDisplayInDialog = null }) {
+            // ... (sisa implementasi dialog, pastikan menggunakan uriForDialog)
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.9f) // Mengisi 90% lebar layar
-                    .fillMaxHeight(0.7f) // Mengisi 70% tinggi layar
+                    .fillMaxWidth(0.9f)
+                    .fillMaxHeight(0.7f)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color.White),
                 contentAlignment = Alignment.Center
@@ -2296,7 +2338,7 @@ fun MultipleImagePickerRow(
                 Image(
                     painter = rememberAsyncImagePainter(
                         ImageRequest.Builder(context)
-                            .data(uri)
+                            .data(uriForDialog) // Gunakan URI yang disimpan untuk dialog
                             .crossfade(true)
                             .build()
                     ),
@@ -2304,7 +2346,7 @@ fun MultipleImagePickerRow(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(16.dp),
-                    contentScale = ContentScale.Fit // Agar seluruh gambar terlihat
+                    contentScale = ContentScale.Fit
                 )
                 IconButton(
                     onClick = { uriToDisplayInDialog = null },
@@ -2325,42 +2367,31 @@ fun MultipleImagePickerRow(
 
 @Composable
 fun UploadButton(
+    modifier: Modifier = Modifier,
     remainingQuota: Int,
-    judul: String,
-    harga: String,
-    lokasi: String,
+    isFormValid: Boolean,
+    onUploadClick: () -> Unit,
     onNavigateToPembayaran: () -> Unit
 ) {
     val context = LocalContext.current
     var showQuotaDialog by remember { mutableStateOf(false) }
 
-    Column {
-        // Tampilkan info kuota
-//        Text(
-//            text = "Sisa kuota gratis: $remainingQuota dari 3",
-//            style = MaterialTheme.typography.bodyMedium,
-//            color = Color.DarkGray,
-//            modifier = Modifier.padding(bottom = 8.dp)
-//        )
+    val upImgViewModel: UpImgViewModel = viewModel()
+    val uploadState by upImgViewModel.uploadStatus.observeAsState(initial = UploadResult.Idle)
 
-        // Tombol unggah
+    Column(modifier = modifier) {
         Button(
             onClick = {
-                if (judul.isBlank() || harga.isBlank() || lokasi.isBlank()) {
-                Toast.makeText(
-                    context,
-                    "Semua kolom wajib diisi!",
-                    Toast.LENGTH_SHORT
-                ).show()
+                if (!isFormValid) {
+                    Toast.makeText(
+                        context,
+                        "Semua kolom wajib diisi dan minimal satu gambar dipilih!",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } else if (remainingQuota == 0) {
                     showQuotaDialog = true
                 } else {
-                    Toast.makeText(
-                        context,
-                        "Barang berhasil diunggah!",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    // Upload logic here
+                    onUploadClick()
                 }
             },
             modifier = Modifier
@@ -2369,14 +2400,14 @@ fun UploadButton(
             shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFFF8D21),
-                contentColor = Color(0xFF822900)
+                contentColor = Color.White
             ),
+            enabled = isFormValid && uploadState !is UploadResult.Loading
         ) {
             Text("Unggah", color = Color.White)
         }
     }
 
-    // Dialog jika kuota habis
     if (showQuotaDialog) {
         AlertDialog(
             containerColor = Color.White,
@@ -2386,18 +2417,17 @@ fun UploadButton(
             confirmButton = {
                 TextButton(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                         .height(56.dp),
                     shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
+                    colors = ButtonDefaults.textButtonColors(
                         containerColor = Color(0xFFFF8D21),
-                        contentColor = Color(0xFF822900)
+                        contentColor = Color.White
                     ),
                     onClick = {
                         showQuotaDialog = false
                         onNavigateToPembayaran()
                     }
-
                 ) {
                     Text("Bayar")
                 }
@@ -2405,21 +2435,37 @@ fun UploadButton(
             dismissButton = {
                 TextButton(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                         .height(56.dp),
                     shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
+                    colors = ButtonDefaults.textButtonColors(
                         containerColor = Color(0xFFFF3D3D),
-                        contentColor = Color(0xFF7A0000)
+                        contentColor = Color.White
                     ),
-                    onClick = { showQuotaDialog = false }) {
+                    onClick = { showQuotaDialog = false }
+                ) {
                     Text("Batal")
                 }
-            }
+            },
+            properties = DialogProperties(dismissOnClickOutside = false),
         )
     }
 }
 
+@Composable
+fun ExitConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Keluar Aplikasi") },
+        text = { Text("Apakah Anda yakin ingin keluar dari aplikasi?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("Ya") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Tidak") }
+        }
+    )
+}
 
 //@Preview(showBackground = true)
 //@Composable

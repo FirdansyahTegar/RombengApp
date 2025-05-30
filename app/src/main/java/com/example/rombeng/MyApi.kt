@@ -2,10 +2,11 @@ package com.example.rombeng
 
 import com.example.rombeng.model.AddUserResponse
 import com.example.rombeng.model.GoogleRegisterRequest
+import com.example.rombeng.model.ImageUploadResponse
 import com.example.rombeng.model.LoginRequest
 import com.example.rombeng.model.LoginResponse
 import com.example.rombeng.model.User
-import com.google.firebase.appdistribution.gradle.models.UploadResponse
+import com.example.rombeng.model.UploadResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.http.GET
@@ -37,12 +38,36 @@ interface MyApi {
         @Body loginRequest: LoginRequest
     ): Response<LoginResponse>
 
-    @Multipart // Menandakan bahwa request ini adalah multipart (untuk upload file)
-    @POST("upload_api.php") // Sesuaikan dengan path ke file PHP Anda
-    suspend fun uploadImage(
-        @Part image: MultipartBody.Part, // Bagian file gambar
-        @Part("description") description: RequestBody? = null // Contoh data tambahan (opsional)
-    ): Response<UploadResponse> // Menggunakan Response<T> untuk mendapatkan detail HTTP
+    @Multipart
+    @POST("upload_api.php") // Sesuaikan path ke API Anda
+    suspend fun uploadImage(@Part image: MultipartBody.Part): Response<ImageUploadResponse> // Menggunakan Response<T> untuk mendapatkan detail HTTP
+
+    @Multipart
+    @POST("upload_api.php") // Ganti dengan endpoint Anda
+    suspend fun uploadMultipleImagesAndData( // Nama fungsi yang lebih deskriptif
+        @Header("Authorization") authToken: String,
+        @Part images: List<MultipartBody.Part>,
+        @Part("judul_barang") judul: RequestBody, // Nama field harus sesuai dengan yang diharapkan backend
+        @Part("harga_barang") harga: RequestBody,
+        @Part("kategori_barang") kategori: RequestBody,
+        @Part("deskripsi_barang") deskripsi: RequestBody,
+        @Part("lokasi_barang") lokasi: RequestBody
+    ): Response<ImageUploadResponse> // Pastikan ImageUploadResponse sesuai
+
+
+    @Multipart
+    @POST("upload_api.php") // Ganti dengan path API Anda untuk multiple upload
+    suspend fun uploadMultipleImages(
+        @Part images: List<MultipartBody.Part>
+        // Jika Anda juga ingin mengirim data form lainnya (judul, harga, dll.)
+        // tambahkan @Part untuk setiap field di sini:
+        // @Part("judul") judul: RequestBody,
+        // @Part("harga") harga: RequestBody,
+        // @Part("kategori") kategori: RequestBody,
+        // @Part("deskripsi") deskripsi: RequestBody,
+        // @Part("lokasi") lokasi: RequestBody
+    ): Response<ImageUploadResponse> // Response mungkin perlu disesuaikan jika backend mengembalikan data berbeda untuk multiple upload
+
 }
 
 

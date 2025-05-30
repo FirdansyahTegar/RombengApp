@@ -217,7 +217,6 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // ... di dalam ViewModel atau class yang menangani login
 
     // Ganti dengan Web Client ID yang Anda dapatkan dari Google Cloud Console
     private val credentialManager: CredentialManager = CredentialManager.create(application.applicationContext)

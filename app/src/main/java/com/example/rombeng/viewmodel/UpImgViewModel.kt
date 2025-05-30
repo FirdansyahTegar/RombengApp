@@ -1,158 +1,254 @@
-package com.example.rombeng.viewmodel
+package com.example.rombeng.viewmodel // Package dan nama ViewModel disesuaikan
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
-import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
-//import androidx.datastore.core.use
-import androidx.lifecycle.AndroidViewModel
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.rombeng.service.RetrofitClient
+import androidx.lifecycle.AndroidViewModel // Ganti ViewModel dengan AndroidViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.rombeng.model.ImageUploadResponse // Model disesuaikan
+import com.example.rombeng.MyApi // API interface disesuaikan
+import com.example.rombeng.service.RetrofitClient // Retrofit client disesuaikan
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import com.example.rombeng.viewmodel.LoginViewModel
+
+// Sealed class untuk merepresentasikan state hasil upload
+sealed class UploadResult<out T> {
+    data class Success<T>(val data: T) : UploadResult<T>()
+    data class Error(val message: String) : UploadResult<Nothing>()
+    object Loading : UploadResult<Nothing>()
+    object Idle : UploadResult<Nothing>()
+}
+
+// ASUMSI: Anda memiliki cara untuk mendapatkan token, misalnya melalui SharedPreferences
+// atau ViewModel lain yang di-inject.
+// Contoh sederhana jika disimpan di SharedPreferences (perlu diimplementasikan):
+// class TokenRepository(private val context: Context) {
+//     private val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+//     fun getToken(): String? = prefs.getString("auth_token", null)
+// }
 
 
-class UpImgViewModel(application: Application) : AndroidViewModel(application) {
+// Anda perlu menyediakan instance LoginViewModel atau repository yang bisa memberikan token
+// Misalnya, dengan Hilt atau Koin untuk dependency injection, atau instance manual.
+// Untuk contoh ini, saya akan asumsikan Anda memiliki fungsi untuk mendapatkan token.
+class UpImgViewModel(
+    application: Application,
+    // Contoh jika Anda menginject repository untuk token:
+    // private val tokenRepository: TokenRepository,
+//    private val applicationContext: Context // Gunakan application context jika diperlukan untuk SharedPreferences
+) : AndroidViewModel(application) {
 
-    private val _uploadStatus = MutableLiveData<String>()
-    val uploadStatus: LiveData<String> = _uploadStatus
+    private val _uploadStatus = MutableLiveData<UploadResult<ImageUploadResponse>>(UploadResult.Idle)
+    val uploadStatus: LiveData<UploadResult<ImageUploadResponse>> = _uploadStatus
 
-    // Gunakan instance Retrofit yang sudah dibuat
-    private val apiService = RetrofitClient.myApi // Menggunakan RetrofitInstance
+    private val apiService: MyApi = RetrofitClient.myApi
 
-    fun uploadSingleImageToServer(imageUri: Uri, description: String? = null) {
+    // --- FUNGSI LAMA uploadImage (single image) ---
+    // Jika Anda masih membutuhkannya, pastikan untuk menambahkan pengiriman token juga.
+    // Untuk saat ini, saya akan fokus pada uploadImagesFromPaths.
+    // fun uploadImage(context: Context, imageUri: Uri) { ... }
+
+
+    // Fungsi untuk mendapatkan token (INI PERLU ANDA IMPLEMENTASIKAN)
+    // Ini adalah placeholder. Anda harus menggantinya dengan implementasi nyata
+    // untuk mengambil token dari SharedPreferences atau LoginViewModel.
+    private fun getAuthToken(): String? {
+        val prefs = getApplication<Application>().getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+        return prefs.getString("jwt_token", null)
+    }
+
+
+
+    private fun uriToFile(context: Context, uri: Uri): File? {
+        val context = getApplication<Application>() // Gunakan application context
+        var fileName: String? = null
+        try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex != -1) {
+                        fileName = cursor.getString(nameIndex)
+                    }
+                }
+            }
+            if (fileName == null) {
+                fileName = "temp_image_${System.currentTimeMillis()}"
+            }
+
+            val file = File(context.cacheDir, fileName!!)
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+            val outputStream = FileOutputStream(file)
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+            return file
+        } catch (e: Exception) {
+            Log.e("UpImgViewModel", "Error converting URI to File", e)
+            return null
+        }
+    }
+
+    fun uploadImagesFromPaths(
+        context: Context, // Dipertahankan untuk ContentResolver fallback
+        imageFilePaths: List<String>,
+        judul: String,
+        harga: String,
+        kategori: String,
+        deskripsi: String,
+        lokasi: String
+    ) {
+        if (imageFilePaths.isEmpty()) {
+            _uploadStatus.value = UploadResult.Error("Tidak ada gambar yang dipilih.")
+            return
+        }
+
+        // --- DAPATKAN TOKEN DI SINI ---
+        val token = getAuthToken() // Panggil fungsi untuk mendapatkan token
+
+        if (token == null || token.isEmpty()) {
+            _uploadStatus.value = UploadResult.Error("Otentikasi gagal. Silakan login kembali.")
+            Log.e("ViewModelUpload", "Auth token is null or empty.")
+            return // Hentikan proses jika token tidak ada
+        }
+
+        // --- BARU SETELAH TOKEN DIPASTIKAN ADA ---
+        _uploadStatus.value = UploadResult.Loading
+
         viewModelScope.launch {
-            _uploadStatus.value = "Mengunggah gambar..."
             try {
-                val context = getApplication<Application>().applicationContext
+                val imageParts = imageFilePaths.mapNotNull { filePath ->
+                    val imageFile = File(filePath)
+                    if (!imageFile.exists()) {
+                        Log.e("ViewModelUpload", "File tidak ditemukan di path: $filePath")
+                        return@mapNotNull null
+                    }
+                    val mediaTypeString = when (imageFile.extension.lowercase()) {
+                        "jpg", "jpeg" -> "image/jpeg"
+                        "png" -> "image/png"
+                        "gif" -> "image/gif"
+                        "webp" -> "image/webp" // Tambahkan webp
+                        else -> context.contentResolver.getType(Uri.fromFile(imageFile))
+                    }
+                    val mediaType = mediaTypeString?.toMediaTypeOrNull()
 
-                // 1. Dapatkan InputStream dari URI
-                val inputStream = ParcelFileDescriptor.AutoCloseInputStream(parcelFileDescriptor)
-                if (inputStream == null) {
-                    _uploadStatus.value = "Gagal mendapatkan input stream dari URI."
+                    // Menggunakan "application/octet-stream" sebagai fallback jika mediaType null
+                    val actualMediaType = mediaType ?: "application/octet-stream".toMediaTypeOrNull()
+
+                    val requestFile = imageFile.asRequestBody(actualMediaType)
+                    MultipartBody.Part.createFormData("uploaded_images[]", imageFile.name, requestFile)
+                }
+
+                if (imageParts.isEmpty() && imageFilePaths.isNotEmpty()) {
+                    _uploadStatus.value = UploadResult.Error("Gagal memproses file gambar untuk diunggah.")
+                    return@launch
+                }
+                if (imageParts.isEmpty()) {
+                    _uploadStatus.value = UploadResult.Error("Tidak ada gambar yang valid untuk diunggah.")
                     return@launch
                 }
 
-                // 2. Buat file temporer di cache directory
-                val fileName = context.contentResolver.getFileName(imageUri)
-                val file = File(context.cacheDir, fileName)
-                val outputStream = FileOutputStream(file)
+                val judulBody = judul.toRequestBody("text/plain".toMediaTypeOrNull())
+                val hargaBody = harga.toRequestBody("text/plain".toMediaTypeOrNull())
+                val kategoriBody = kategori.toRequestBody("text/plain".toMediaTypeOrNull())
+                val deskripsiBody = deskripsi.toRequestBody("text/plain".toMediaTypeOrNull())
+                val lokasiBody = lokasi.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                // 3. Salin data dari InputStream ke FileOutputStream
-                inputStream.use { input ->
-                    outputStream.use { output ->
-                        input.copyTo(output)
-                    }
-                }
+                // --- BUAT HEADER OTORISASI ---
+                // Token sudah dipastikan tidak null/kosong di atas
+                val authorizationHeader = "Bearer $token"
+                Log.d("ViewModelUpload", "Authorization Header: $authorizationHeader") // Untuk debugging
 
-                // 4. Buat RequestBody dari file
-                val mediaType = context.contentResolver.getType(imageUri)?.toMediaTypeOrNull()
-                val requestFile = file.asRequestBody(mediaType)
+                val response = apiService.uploadMultipleImagesAndData(
+                    authToken = authorizationHeader, // Kirim header di sini
+                    images = imageParts,
+                    judul = judulBody,
+                    harga = hargaBody,
+                    kategori = kategoriBody,
+                    deskripsi = deskripsiBody,
+                    lokasi = lokasiBody
+                )
 
-                // 5. Buat MultipartBody.Part
-                // Nama "uploaded_image" HARUS SAMA dengan yang diharapkan di sisi server PHP ($_FILES['uploaded_image'])
-                val imagePart = MultipartBody.Part.createFormData("uploaded_image", file.name, requestFile)
-
-                // 6. Buat RequestBody untuk data tambahan (jika ada)
-                var descriptionPart: RequestBody? = null
-                if (description != null) {
-                    descriptionPart = description.toRequestBody("text/plain".toMediaTypeOrNull())
-                }
-
-                // 7. Panggil API
-                val response = apiService.uploadImage(imagePart, descriptionPart)
-
-                if (response.isSuccessful) {
-                    val uploadResponse = response.body()
-                    if (uploadResponse != null && uploadResponse.status == "success") {
-                        _uploadStatus.value = "Upload berhasil: ${uploadResponse.message} - Path: ${uploadResponse.filePath}"
+                if (response.isSuccessful && response.body() != null) {
+                    val responseBody = response.body()!!
+                    if (responseBody.status == "success") {
+                        _uploadStatus.value = UploadResult.Success(responseBody)
                     } else {
-                        _uploadStatus.value = "Upload gagal dari server: ${uploadResponse?.message ?: "Respons tidak valid atau kosong"}"
+                        _uploadStatus.value = UploadResult.Error(responseBody.message ?: "Terjadi kesalahan pada server (multi-upload).")
                     }
                 } else {
-                    // Tangani error HTTP (misalnya 404, 500)
                     val errorBody = response.errorBody()?.string()
-                    _uploadStatus.value = "Error HTTP ${response.code()}: ${errorBody ?: "Tidak ada pesan error dari server"}"
+                    Log.e("ViewModelUpload", "Upload error: ${response.code()} - $errorBody")
+                    _uploadStatus.value = UploadResult.Error("Gagal mengunggah. Kode: ${response.code()}. Server: $errorBody")
                 }
 
-                // 8. Hapus file cache setelah selesai (baik berhasil maupun gagal, opsional)
-                file.delete()
-
             } catch (e: Exception) {
-                _uploadStatus.value = "Exception saat mengunggah: ${e.message}"
-                e.printStackTrace() // Penting untuk debugging
+                Log.e("ViewModelUpload", "Exception during upload: ${e.message}", e)
+                _uploadStatus.value = UploadResult.Error("Terjadi kesalahan: ${e.message ?: "Tidak diketahui"}")
             }
         }
     }
 
-    // Fungsi untuk mengupload banyak gambar
-    fun uploadMultipleImagesToServer(imageUris: List<Uri>, descriptions: List<String>? = null) {
-        if (imageUris.isEmpty()) {
-            _uploadStatus.value = "Tidak ada gambar yang dipilih untuk diunggah."
-            return
-        }
+    fun resetUploadStatus() {
+        _uploadStatus.value = UploadResult.Idle
+    }
 
-        viewModelScope.launch {
-            _uploadStatus.value = "Mengunggah ${imageUris.size} gambar..."
-            var successCount = 0
-            var failureCount = 0
-            val totalImages = imageUris.size
-            val results = mutableListOf<String>()
-
-            imageUris.forEachIndexed { index, uri ->
+    fun processAndCacheUris(
+        uris: List<Uri>,
+        currentPaths: List<String>,
+        maxImages: Int,
+        context: Context, // Menggunakan context dari parameter fungsi, bukan applicationContext
+        onComplete: (List<String>) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val newFilePaths = uris.mapNotNull { uri ->
                 try {
-                    val context = getApplication<Application>().applicationContext
-                    val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-                    if (inputStream == null) {
-                        results.add("Gambar ${index + 1}: Gagal mendapatkan input stream.")
-                        failureCount++
-                        return@forEachIndexed // Lanjut ke URI berikutnya
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    // Menggunakan nama file yang lebih unik dari ContentResolver jika tersedia
+                    var fileName: String? = null
+                    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (nameIndex != -1) {
+                                fileName = cursor.getString(nameIndex)
+                            }
+                        }
+                    }
+                    if (fileName == null) {
+                        fileName = "img_${System.currentTimeMillis()}_${uri.lastPathSegment ?: "temp"}"
                     }
 
-                    val fileName = context.contentResolver.getFileName(uri)
-                    val file = File(context.cacheDir, "temp_${index}_${fileName}") // Nama file unik untuk cache
+                    val cacheDir = context.cacheDir
+                    val file = File(cacheDir, fileName!!) // Non-null assertion karena sudah ada fallback
                     val outputStream = FileOutputStream(file)
-                    inputStream.use { input -> outputStream.use { output -> input.copyTo(output) } }
-
-                    val mediaType = context.contentResolver.getType(uri)?.toMediaTypeOrNull()
-                    val requestFile = file.asRequestBody(mediaType)
-                    val imagePart = MultipartBody.Part.createFormData("uploaded_image", file.name, requestFile)
-
-                    var descriptionPart: RequestBody? = null
-                    if (descriptions != null && descriptions.size > index && descriptions[index].isNotBlank()) {
-                        descriptionPart = descriptions[index].toRequestBody("text/plain".toMediaTypeOrNull())
-                    }
-
-                    // Panggil API untuk setiap gambar
-                    val response = apiService.uploadImage(imagePart, descriptionPart)
-
-                    if (response.isSuccessful && response.body()?.status == "success") {
-                        results.add("Gambar ${index + 1} (${file.name}): Berhasil - ${response.body()?.message}")
-                        successCount++
-                    } else {
-                        val errorMsg = response.errorBody()?.string() ?: response.body()?.message ?: "Error tidak diketahui"
-                        results.add("Gambar ${index + 1} (${file.name}): Gagal - ${response.code()} $errorMsg")
-                        failureCount++
-                    }
-                    file.delete() // Hapus file cache
+                    inputStream?.copyTo(outputStream)
+                    inputStream?.close()
+                    outputStream.close()
+                    file.absolutePath
                 } catch (e: Exception) {
-                    results.add("Gambar ${index + 1}: Exception - ${e.message}")
-                    failureCount++
-                    e.printStackTrace()
+                    Log.e("ViewModelCache", "Error copying URI to cache: ${e.message}")
+                    null
                 }
-                // Update status progresif
-                _uploadStatus.value = "Proses: ${index + 1}/$totalImages. Berhasil: $successCount, Gagal: $failureCount."
             }
-            // Status akhir
-            _uploadStatus.value = "Selesai mengunggah $totalImages gambar. Berhasil: $successCount, Gagal: $failureCount.\nDetail:\n${results.joinToString("\n")}"
+            val updatedPaths = (currentPaths + newFilePaths).distinct().take(maxImages)
+            withContext(Dispatchers.Main) {
+                onComplete(updatedPaths)
+            }
         }
     }
 }
