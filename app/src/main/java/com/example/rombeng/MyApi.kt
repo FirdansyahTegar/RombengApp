@@ -5,6 +5,7 @@ import com.example.rombeng.model.GoogleRegisterRequest
 import com.example.rombeng.model.ImageUploadResponse
 import com.example.rombeng.model.LoginRequest
 import com.example.rombeng.model.LoginResponse
+import com.example.rombeng.model.ProductListResponse
 import com.example.rombeng.model.User
 import com.example.rombeng.model.UploadResponse
 import okhttp3.MultipartBody
@@ -39,10 +40,6 @@ interface MyApi {
     ): Response<LoginResponse>
 
     @Multipart
-    @POST("upload_api.php") // Sesuaikan path ke API Anda
-    suspend fun uploadImage(@Part image: MultipartBody.Part): Response<ImageUploadResponse> // Menggunakan Response<T> untuk mendapatkan detail HTTP
-
-    @Multipart
     @POST("upload_api.php") // Ganti dengan endpoint Anda
     suspend fun uploadMultipleImagesAndData( // Nama fungsi yang lebih deskriptif
         @Header("Authorization") authToken: String,
@@ -54,20 +51,17 @@ interface MyApi {
         @Part("lokasi_barang") lokasi: RequestBody
     ): Response<ImageUploadResponse> // Pastikan ImageUploadResponse sesuai
 
+    @GET("get_products.php") // Endpoint yang baru Anda buat
+    suspend fun getProducts(): Response<ProductListResponse>
 
-    @Multipart
-    @POST("upload_api.php") // Ganti dengan path API Anda untuk multiple upload
-    suspend fun uploadMultipleImages(
-        @Part images: List<MultipartBody.Part>
-        // Jika Anda juga ingin mengirim data form lainnya (judul, harga, dll.)
-        // tambahkan @Part untuk setiap field di sini:
-        // @Part("judul") judul: RequestBody,
-        // @Part("harga") harga: RequestBody,
-        // @Part("kategori") kategori: RequestBody,
-        // @Part("deskripsi") deskripsi: RequestBody,
-        // @Part("lokasi") lokasi: RequestBody
-    ): Response<ImageUploadResponse> // Response mungkin perlu disesuaikan jika backend mengembalikan data berbeda untuk multiple upload
+    @GET("search_products.php")
+    suspend fun searchProducts(
+        @Query("query") searchQuery: String
+    ): Response<ProductListResponse>
 
+
+
+    //END OF MYAPI
 }
 
 

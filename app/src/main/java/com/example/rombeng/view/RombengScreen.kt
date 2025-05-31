@@ -19,7 +19,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 //import androidx.compose.foundation.layout.FlowRowScopeInstance.align
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -27,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable // Kemungkinan tidak terpakai, periksa penggunaan
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldState // Kemungkinan tidak terpakai, periksa penggunaan
 import androidx.compose.foundation.verticalScroll
@@ -53,6 +56,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.motionEventSpy // Kemungkinan tidak terpakai, periksa penggunaan
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.error // Kemungkinan tidak terpakai, periksa penggunaan
@@ -72,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat // Kemungkinan tidak terpakai, periksa penggunaan
+import android.graphics.Color as AndroidColor
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -83,18 +88,29 @@ import com.example.rombeng.R
 import com.example.rombeng.viewmodel.RombengViewModel
 import com.example.rombeng.viewmodel.LoginViewModel
 import android.graphics.Color as Colour
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isEmpty
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.WindowInsetsCompat
+//import androidx.preference.forEach
+//import androidx.privacysandbox.tools.core.generator.build
+//import androidx.wear.compose.material.placeholder
+import coil.compose.AsyncImage
 import com.example.rombeng.model.AddUserResponse
 import com.example.rombeng.model.User
+import com.example.rombeng.model.Product
 import com.example.rombeng.service.RetrofitClient
 import com.example.rombeng.viewmodel.LoginUIState
 import com.example.rombeng.viewmodel.UpImgViewModel
 import com.example.rombeng.viewmodel.UploadResult
+import com.example.rombeng.viewmodel.ProductUIState
+import com.example.rombeng.viewmodel.ProductViewModel
+import com.example.rombeng.viewmodel.SearchUIState
+import com.example.rombeng.viewmodel.SearchViewModel
 import com.google.android.gms.common.api.ApiException // Kemungkinan tidak terpakai, periksa penggunaan
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -104,6 +120,12 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.io.File
 import java.io.FileOutputStream
+import java.net.URLDecoder
+import java.net.URLEncoder // Untuk encoding query URL
+import java.nio.charset.StandardCharsets
+import kotlin.text.isNotEmpty
+import kotlin.text.trim
+import androidx.compose.runtime.saveable.Saver
 
 var isErrorName by mutableStateOf(false)
 var isErrorEmail by mutableStateOf(false)
@@ -779,21 +801,32 @@ fun RombengRegister(
     }
 }
 
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewModel()) {
+fun HomeScreen(
+    navController: NavController,
+    loginViewModel: LoginViewModel = viewModel(), // ViewModel untuk login/logout
+    productViewModel: ProductViewModel = viewModel() // ViewModel untuk produk
+) {
     UpdateStatusBarColor(true)
 
-    // === Buat Fullscreen / Immersive Mode ===
     val view = LocalView.current
-
     LaunchedEffect(Unit) {
         val window = (view.context as Activity).window
-        window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-//                        or View.SYSTEM_UI_FLAG_FULLSCREEN
-//                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                )
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        val insetsController = WindowInsetsControllerCompat(window, view)
+
+        insetsController.isAppearanceLightStatusBars = true // true jika background status bar terang, false jika gelap
+
+        window.navigationBarColor = AndroidColor.BLACK // Menggunakan android.graphics.Color.BLACK
+
+        insetsController.isAppearanceLightNavigationBars = false // false karena background navbar gelap (hitam)
+
+        insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
+
 
     var showExitDialog by remember { mutableStateOf(false) }
     var showLogOutDialog by remember { mutableStateOf(false) }
@@ -823,6 +856,9 @@ fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewMod
         )
     }
 
+    // ==== Observasi Product State DI SINI, di luar LazyColumn ====
+    val productsUIState by productViewModel.productsState.observeAsState(initial = ProductUIState.Idle)
+
     // ==== Layout Utama ====
     Box(
         modifier = Modifier
@@ -832,20 +868,19 @@ fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewMod
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
+            // Bagian atas (Logo, Logout, Search, Categories) tetap menggunakan item tunggal di LazyColumn
             LazyColumn(modifier = Modifier.weight(1f)) {
                 item {
+                    // Row untuk Logo dan Logout Icon
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color.White)
                             .padding(horizontal = 16.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween, // Menyebarkan ruang di antara item
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // App Title & Logo di kiri
                         LogoRombeng()
-
-                        // Icon di kanan
                         Icon(
                             imageVector = Icons.Default.Logout,
                             contentDescription = "Logout",
@@ -860,38 +895,41 @@ fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewMod
                                 confirmButton = {
                                     TextButton(
                                         onClick = {
-                                            viewModel.logout()
+                                            loginViewModel.logout() // Gunakan loginViewModel
+                                            showLogOutDialog = false // Tutup dialog
                                             navController.navigate("signin") {
-                                                popUpTo("home") { inclusive = true }
-                                                }
+                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                                launchSingleTop = true
                                             }
-                                        ) {
-                                        Text("Ya")
-                                    }
+                                        }
+                                    ) { Text("Ya") }
                                 },
                                 dismissButton = {
-                                    TextButton(onClick = { showLogOutDialog = false }) {
-                                        Text("Tidak")
-                                    }
+                                    TextButton(onClick = { showLogOutDialog = false }) { Text("Tidak") }
                                 }
                             )
                         }
                     }
+
                     // Search Bar
                     Box(
                         modifier = Modifier
-                            .height(200.dp)
+                            .height(200.dp) // Sesuaikan jika perlu
                             .fillMaxWidth()
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.bg_home),
                             contentDescription = "Background",
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
+                            modifier = Modifier.fillMaxSize()
                         )
-                        Column(modifier = Modifier.clickable { navController.navigate("search") }) {
-                            Spacer(Modifier.height(12.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize() // Memastikan Column mengisi Box
+                                .clickable { navController.navigate("search") },
+                            verticalArrangement = Arrangement.Center, // Menengahkan TextFieldBuilder
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             TextFieldBuilder(
                                 enabled = false,
                                 value = "",
@@ -899,11 +937,14 @@ fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewMod
                                 placeholder = "Mau Cari Apa?",
                                 leadingIcon = Icons.Default.Search,
                                 modifier = Modifier
+                                    .fillMaxWidth() // Agar TextField mengambil lebar penuh
                                     .padding(horizontal = 24.dp)
                                     .clip(shape = RoundedCornerShape(10.dp))
                             )
                         }
                     }
+
+                    // Categories
                     val categories = listOf(
                         "Elektronik", "Furnitur", "Material Bangunan", "Kendaraan", "Lihat Semua"
                     )
@@ -921,86 +962,167 @@ fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewMod
                                 2 -> R.drawable.material_bangunan
                                 3 -> R.drawable.kendaraan
                                 4 -> R.drawable.lihat_semua
-                                else -> R.drawable.placeholder // fallback image
+                                else -> R.drawable.img // fallback image (ganti jika ada)
                             }
-
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .width(60.dp)
+                                modifier = Modifier.width(60.dp) // Atau gunakan weight jika ingin lebih dinamis
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .size(60.dp)
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(Color(0xFFFF8000)),
+                                        .background(Color(0xFFFF8000))
+                                        .clickable {
+                                            // TODO: Navigasi ke halaman kategori
+                                            // navController.navigate("category/$category")
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Image(
                                         painter = painterResource(id = imgId),
-                                        contentDescription = "Icon",
-                                        modifier = Modifier.size(36.dp) // Ukuran bisa disesuaikan
+                                        contentDescription = category,
+                                        modifier = Modifier.size(36.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = category,
                                     fontSize = 11.sp,
-                                    fontFamily = FontFamily.Serif, // Bisa diganti Font(R.font.crimson_text) kalau punya
+                                    fontFamily = FontFamily.Serif,
                                     fontWeight = FontWeight.Normal,
                                     color = Color.Black,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.height(27.dp)
+                                    modifier = Modifier.height(27.dp),
+                                    maxLines = 2, // Izinkan dua baris jika perlu
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                             }
                         }
                     }
-                }
+                } // Akhir dari item tunggal untuk header
 
+                // --- BAGIAN INTEGRASI PRODUCT LIST ---
                 item {
                     Text(
                         text = "Rekomendasi Barang Bekas",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        modifier = Modifier.padding(start = 16.dp),
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 10.dp), // Beri padding atas juga
                         color = Color.Black
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                data class ItemData(val judul: String, val harga: String, val lokasi: String)
-                val items = listOf(
-                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
-                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
-                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
-                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
-                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
-                    ItemData("Kulkas GL", "Rp400.000", "Lowokwaru"),
-                    ItemData("Kulkas GG", "Rp2.000.000", "Blimbing")
-                )
-                items(items.chunked(2)) { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        rowItems.forEach { item ->
-                            CardBuilder(
-                                judul = item.judul,
-                                harga = item.harga,
-                                lokasi = item.lokasi,
+                when (val currentState = productsUIState) {
+                    is ProductUIState.Loading -> {
+                        item { // item untuk menempatkan CircularProgressIndicator di dalam LazyColumn
+                            Box(
                                 modifier = Modifier
-                                    .padding(8.dp)
-                                    .clickable { navController.navigate("search") }
-                            )
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
                         }
-
-                        if (rowItems.size == 1) {
-                            Spacer(modifier = Modifier.width(150.dp))
+                    }
+                    is ProductUIState.Success -> {
+                        val products = currentState.products
+                        if (products.isNotEmpty()) {
+                            // `items` ini akan membuat banyak item di LazyColumn, satu untuk setiap baris produk
+                            items(products.chunked(2)) { rowItems ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp), // Padding untuk Row agar tidak terlalu mepet tepi
+                                    horizontalArrangement = if (rowItems.size == 1) Arrangement.Start else Arrangement.SpaceBetween
+                                ) {
+                                    rowItems.forEach { product ->
+                                        CardBuilder(
+                                            judul = product.namaProduk,
+                                            harga = product.harga,
+                                            lokasi = product.lokasi,
+                                            penjual = product.penjualUsername,
+                                            imageUrl = product.gambarUrls.firstOrNull(),
+                                            modifier = Modifier
+                                                .weight(1f) // Agar kartu mengisi ruang secara merata
+                                                .padding(horizontal = 4.dp) // Padding antar kartu
+                                                .clickable {
+                                                    navController.navigate("productDetail/${product.id}")
+                                                }
+                                        )
+                                    }
+                                    if (rowItems.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f)) // Mengisi sisa ruang jika hanya 1 item
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp)) // Spasi antar baris produk
+                            }
+                        } else {
+                            // Ini seharusnya ditangani oleh ProductUIState.Empty
+                            // jika API mengembalikan 'success' dengan data kosong
+                            item {
+                                Text(
+                                    "Tidak ada rekomendasi barang bekas saat ini.",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                    is ProductUIState.Error -> {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Gagal memuat rekomendasi.")
+                                Text("Error: ${currentState.message}")
+                                Button(onClick = { productViewModel.fetchProducts() }) {
+                                    Text("Coba Lagi")
+                                }
+                            }
+                        }
+                    }
+                    is ProductUIState.Empty -> {
+                        item {
+                            Text(
+                                "Tidak ada rekomendasi barang bekas tersedia.",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                textAlign = TextAlign.Center
+                            )
+//                            Button(onClick = { productViewModel.fetchProducts() }) {
+//                                Text("Refresh")
+//                            }
+                        }
+                    }
+                    is ProductUIState.Idle -> {
+                        item {
+                            // Bisa tampilkan shimmer/placeholder atau biarkan kosong jika loading cepat
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // Text("Memuat rekomendasi...") // Atau tidak tampilkan apa-apa
+                            }
                         }
                     }
                 }
-            }
-        }
+                // --- AKHIR BAGIAN INTEGRASI PRODUCT LIST ---
+
+                item { // Spacer di akhir LazyColumn sebelum BottomNavBar
+                    Spacer(modifier = Modifier.height(80.dp)) // Sesuaikan tinggi spacer ini
+                }
+            } // Akhir LazyColumn
+        } // Akhir Column utama
 
         // BottomNavBar dipastikan di bawah
         Box(modifier = Modifier.align(Alignment.BottomCenter)) {
@@ -1008,7 +1130,6 @@ fun HomeScreen(navController: NavController, viewModel: LoginViewModel = viewMod
         }
     }
 }
-
 
 @Composable
 fun UploadItem(
@@ -1048,22 +1169,6 @@ fun UploadItem(
         }
     }
 
-//    val isFormValid by remember(judul, harga, lokasi, urisToUpload, selectedKategori) {
-//        derivedStateOf {
-//            val judulValid = judul.isNotBlank()
-//            val hargaNotBlank = harga.isNotBlank()
-//            val hargaIsDigit = harga.all { it.isDigit() } // Ini adalah kandidat potensial
-//            val lokasiValid = lokasi.isNotBlank()
-//            val urisValid = urisToUpload.isNotEmpty()
-//            val kategoriValid = selectedKategori != null && selectedKategori!!.isNotBlank()
-//            val result = judulValid &&
-//                    hargaNotBlank &&
-//                    hargaIsDigit &&     // Perhatikan ini
-//                    lokasiValid &&
-//                    urisValid &&
-//                    kategoriValid
-//        }
-//    }
 
     val remainingQuota = 3
 
@@ -1092,6 +1197,7 @@ fun UploadItem(
                 selectedKategori = null
                 urisToUpload = emptyList() // Reset list URI
                 upImgViewModel.resetUploadStatus()
+                navController.navigate("cart")
             }
             is UploadResult.Error -> {
                 Toast.makeText(context, "Error: ${result.message}", Toast.LENGTH_LONG).show()
@@ -1206,7 +1312,7 @@ fun UploadItem(
                     onUploadClick = {
                         if (isFormValid2) {
                             // Panggil fungsi ViewModel dengan List<String> path file
-                            upImgViewModel.uploadImagesFromPaths( // Anda perlu membuat fungsi ini di ViewModel
+                            upImgViewModel.uploadImagesFromPaths(
                                 context = context, // Mungkin tidak lagi dibutuhkan jika path sudah absolut
                                 imageFilePaths = imageFilePathsToUpload,
                                 judul = judul, // Teruskan data lain jika ViewModel Anda menerimanya
@@ -1215,6 +1321,7 @@ fun UploadItem(
                                 deskripsi = deskripsi,
                                 lokasi = lokasi
                             )
+
                         } else {
                             Toast.makeText(context, "Harap lengkapi semua data yang diperlukan dan pilih minimal satu gambar.", Toast.LENGTH_SHORT).show()
                         }
@@ -1234,7 +1341,6 @@ fun UploadItem(
     }
 }
 
-// Pastikan listUriSaver ada jika belum
 @Composable
 fun listUriSaver() = Saver<List<Uri>, List<String>>(
     save = { list -> list.map { it.toString() } },
@@ -1266,12 +1372,26 @@ fun SearchScreen(navController: NavController, viewModel: RombengViewModel = vie
                         .height(30.dp)
                 )
             }
+            val sviewModel: SearchViewModel = viewModel()
+            val localFocusManager = LocalFocusManager.current
             // Search bar
+
             TextFieldBuilder(
                 value = viewModel.search,
                 onValueChange = { viewModel.onSearchChange(it) },
                 placeholder = "Mau Cari Apa?",
                 leadingIcon = Icons.Default.Search,
+                // --- ATUR IME ACTION DAN ONSEARCH ACTION ---
+                imeAction = ImeAction.Search, // Ini akan mengubah tombol Enter menjadi ikon/teks Search
+                onSearch = {
+                    val searchQuery = viewModel.search.trim()
+                    if (searchQuery.isNotEmpty()) {
+                        localFocusManager.clearFocus() // Sembunyikan keyboard
+                        // Encode query untuk keamanan URL
+                        val encodedQuery = URLEncoder.encode(searchQuery, StandardCharsets.UTF_8.toString())
+                        navController.navigate("searchResult/$encodedQuery")
+                    }
+                },
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 10.dp)
@@ -1281,9 +1401,7 @@ fun SearchScreen(navController: NavController, viewModel: RombengViewModel = vie
                         ambientColor = Color.Gray,
                         spotColor = Color.Gray
                     )
-//                    .border(width = 2.dp, color = Color(0xFFFF8000), shape = RoundedCornerShape(25.dp))
                     .clip(shape = RoundedCornerShape(25.dp))
-
             )
         }
 
@@ -1323,6 +1441,164 @@ fun SearchScreen(navController: NavController, viewModel: RombengViewModel = vie
         }
     }
 }
+
+@Composable
+fun SearchResultScreen(
+    navController: NavController,
+    initialQuery: String?, // Terima initialQuery dari argumen navigasi
+    searchViewModel: SearchViewModel = viewModel()
+) {
+    val localFocusManager = LocalFocusManager.current
+    val decodedInitialQuery = remember(initialQuery) {
+        try {
+            initialQuery?.let { URLDecoder.decode(it, StandardCharsets.UTF_8.toString()) } ?: ""
+        } catch (e: Exception) {
+            // Tangani error decoding jika ada, meskipun jarang terjadi dengan UTF-8
+            initialQuery ?: "" // fallback ke query asli jika decode gagal
+        }
+    }
+
+
+    // Set search text di ViewModel saat pertama kali screen dibuka atau initialQuery berubah
+    LaunchedEffect(decodedInitialQuery) {
+        if (decodedInitialQuery.isNotEmpty()) {
+            searchViewModel.onSearchChange(decodedInitialQuery) // Update text di ViewModel
+            searchViewModel.triggerSearch() // Langsung lakukan pencarian dengan query awal
+        } else {
+            // Jika initialQuery kosong (seharusnya tidak terjadi jika navigasi benar)
+            // Anda bisa memutuskan untuk tidak melakukan apa-apa atau menampilkan state Idle
+            searchViewModel.onSearchChange("") // Kosongkan search text
+            // searchViewModel.searchResultsState = SearchUIState.Idle // Atau set state secara manual
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(Color.White)
+    ) {
+        // --- Search Bar Row ---
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 8.dp) // Beri sedikit jarak bawah
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 12.dp)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.back), // Pastikan R.drawable.back ada
+                    contentDescription = "Back Button",
+                    contentScale = ContentScale.FillHeight,
+                    modifier = Modifier
+                        .clickable { navController.popBackStack() }
+                        .height(30.dp)
+                )
+            }
+            TextFieldBuilder(
+                value = searchViewModel.search, // Ambil value dari SearchViewModel
+                onValueChange = { searchViewModel.onSearchChange(it) }, // Update SearchViewModel
+                placeholder = "Cari produk...", // Placeholder bisa lebih spesifik
+                leadingIcon = Icons.Default.Search,
+                imeAction = ImeAction.Search,
+                onSearch = {
+                    searchViewModel.triggerSearch() // Panggil triggerSearch dari ViewModel
+                    localFocusManager.clearFocus()
+                },
+                modifier = Modifier
+                    .weight(1f) // Agar TextField mengisi sisa ruang
+                    .padding(horizontal = 16.dp) // Sesuaikan padding
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(25.dp),
+                        ambientColor = Color.Gray,
+                        spotColor = Color.Gray
+                    )
+                    .clip(shape = RoundedCornerShape(25.dp))
+            )
+        }
+
+        // --- Hasil Pencarian ---
+        val searchState = searchViewModel.searchResultsState
+        when (searchState) {
+            is SearchUIState.Idle -> {
+                if (searchViewModel.search.isBlank() && decodedInitialQuery.isBlank()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Ketikkan sesuatu untuk dicari.")
+                    }
+                }
+                // Jika tidak, biarkan loading atau state lain yang akan muncul berikutnya
+            }
+            is SearchUIState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is SearchUIState.Success -> {
+                if (searchState.products.isNotEmpty()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(searchState.products.chunked(2)) { rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = if (rowItems.size < 2) Arrangement.Start else Arrangement.SpaceBetween
+                            ) {
+                                rowItems.forEach { product ->
+                                    CardBuilder(
+                                        judul = product.namaProduk,
+                                        harga = product.harga,
+                                        lokasi = product.lokasi,
+                                        penjual = product.penjualUsername,
+                                        imageUrl = product.gambarUrls.firstOrNull(),
+                                        modifier = Modifier
+                                            .weight(1f) // Agar kartu mengisi ruang yang tersedia
+                                            .padding(4.dp) // Padding antar kartu
+                                            .clickable {
+                                                navController.navigate("productDetail/${product.id}")
+                                            }
+                                    )
+                                }
+                                // Tambahkan Spacer jika hanya ada satu item di baris terakhir untuk menjaga layout
+                                if (rowItems.size == 1) {
+                                    Spacer(modifier = Modifier
+                                        .weight(1f)
+                                        .padding(4.dp))
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Ini seharusnya ditangani oleh SearchUIState.Empty jika API mengembalikan data kosong
+                    // Tapi sebagai fallback jika Success tapi listnya kosong
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Tidak ada produk yang cocok dengan '${searchViewModel.search}'.")
+                    }
+                }
+            }
+            is SearchUIState.Empty -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Tidak ada produk yang cocok dengan '${searchViewModel.search}'.")
+                }
+            }
+            is SearchUIState.Error -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Gagal memuat hasil pencarian.")
+                        Text("Error: ${searchState.message}")
+                        // Anda bisa menambahkan tombol "Coba Lagi" di sini
+                        // Button(onClick = { searchViewModel.triggerSearch() }) { Text("Coba Lagi") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 
 @Composable
 fun KulkasResult(navController: NavController, viewModel: RombengViewModel = viewModel()) {
@@ -1396,6 +1672,8 @@ fun KulkasResult(navController: NavController, viewModel: RombengViewModel = vie
                             judul = item.judul,
                             harga = item.harga,
                             lokasi = item.lokasi,
+                            penjual = "Rombeng",
+                            imageUrl = null,
                             modifier = Modifier
                                 .padding(8.dp)
                                 .clickable { navController.navigate("search") }
@@ -1892,20 +2170,21 @@ fun TextFieldBuilder(
     onValueChange: (String) -> Unit,
     placeholder: String,
     colors: TextFieldColors = TextFieldDefaults.textFieldColors(
-        containerColor = Color.White, // Warna latar belakang
-        cursorColor = Color.Black, // Warna kursor
-        focusedIndicatorColor = Color.LightGray, // Garis bawah saat fokus
-        unfocusedIndicatorColor = Color.Transparent // Garis bawah saat tidak fokus
+        containerColor = Color.White,
+        cursorColor = Color.Black,
+        focusedIndicatorColor = Color.LightGray,
+        unfocusedIndicatorColor = Color.Transparent
     ),
     leadingIcon: ImageVector? = null,
     keyType: KeyboardType? = KeyboardType.Text,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // --- TAMBAHAN BARU ---
+    imeAction: ImeAction = ImeAction.Default, // Defaultnya bisa Next, Done, dll.
+    onSearch: (() -> Unit)? = null // Aksi yang dijalankan saat tombol search ditekan
+    // ---------------------
 ) {
     TextField(
         enabled = enabled ?: true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = keyType ?: KeyboardType.Text
-        ),
         value = value,
         onValueChange = onValueChange,
         placeholder = { Text(placeholder) },
@@ -1913,6 +2192,26 @@ fun TextFieldBuilder(
         leadingIcon = leadingIcon?.let {
             { Icon(imageVector = it, contentDescription = null) }
         },
+        // --- MODIFIKASI KeyboardOptions dan KeyboardActions ---
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyType ?: KeyboardType.Text,
+            imeAction = imeAction // Gunakan imeAction yang di-pass
+        ),
+        keyboardActions = KeyboardActions(
+            onSearch = { // Ini akan dieksekusi jika imeAction adalah ImeAction.Search
+                onSearch?.invoke()
+            },
+            onDone = { // Anda juga bisa menangani onDone jika imeAction adalah ImeAction.Done
+                if (imeAction == ImeAction.Done) {
+                    // Lakukan sesuatu jika tombol Done ditekan,
+                    // misalnya, jika onSearch juga null
+                    // atau panggil onSearch jika itu yang diinginkan untuk Done juga
+                    onSearch?.invoke()
+                }
+            }
+            // Anda bisa menambahkan handler lain seperti onNext, onGo, dll.
+        ),
+        // ----------------------------------------------------
         modifier = modifier
             .fillMaxWidth()
             .background(Color.White, shape = RoundedCornerShape(8.dp))
@@ -2024,29 +2323,36 @@ data class BottomNavItem(
     val label: String
 )
 
+
 @Composable
-fun CardBuilder(judul: String, harga: String, lokasi: String, modifier: Modifier = Modifier) {
+fun CardBuilder(
+    judul: String,
+    harga: String,
+    lokasi: String,
+    penjual: String?, // Tambahkan parameter untuk nama penjual
+    imageUrl: String?,
+    modifier: Modifier = Modifier
+) {
     Card(
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 6.dp
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White,
-        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFFF8000)),
-//        onClick = action,
         modifier = modifier
             .width(150.dp)
-            .height(220.dp)
-//            .padding(12.dp)
-
+            .height(240.dp) // Mungkin perlu menambah tinggi kartu sedikit
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.img),
-            contentDescription = "Card Image",
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(imageUrl)
+                .crossfade(true)
+                .placeholder(R.drawable.img)
+                .error(R.drawable.img)
+                .build(),
+            contentDescription = "Gambar Produk: $judul",
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxWidth()
+                .height(160.dp)
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -2056,7 +2362,9 @@ fun CardBuilder(judul: String, harga: String, lokasi: String, modifier: Modifier
             color = Color.Black,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Start,
-            modifier = Modifier.padding(start = 8.dp)
+            modifier = Modifier.padding(start = 8.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -2074,9 +2382,37 @@ fun CardBuilder(judul: String, harga: String, lokasi: String, modifier: Modifier
             fontFamily = FontFamily.SansSerif,
             color = Color.Black,
             textAlign = TextAlign.Start,
-            modifier = Modifier.padding(start = 8.dp)
+            modifier = Modifier.padding(start = 8.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-
+        // Tampilkan Nama Penjual
+        if (!penjual.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(
+                modifier = Modifier.padding(start = 8.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+//                    painter = painterResource(id = R.drawable.img),
+                    contentDescription = "Penjual",
+                    imageVector = Icons.Default.AccountCircle,
+                    modifier = Modifier.size(12.dp),
+                    tint = Color.Gray
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = penjual,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.SansSerif,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Start,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp)) // Beri sedikit padding di bawah
     }
 }
 

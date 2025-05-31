@@ -69,6 +69,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import androidx.activity.viewModels
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.example.rombeng.viewmodel.LoginViewModel
 
 
@@ -143,8 +145,27 @@ fun AppNavigator(viewModel: RombengViewModel, lviewModel: LoginViewModel) {
         composable("detail") {
             UserDetailScreen(navController = navController, viewModel = viewModel)
         }
+        composable(
+            route = "searchResult/{searchQuery}", // Definisikan argumen searchQuery
+            arguments = listOf(navArgument("searchQuery") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val query = backStackEntry.arguments?.getString("searchQuery")
+            SearchResultScreen(navController = navController, initialQuery = query)
+        }
         composable("kulkasResult") { KulkasResult(navController) }
-
+        composable(
+            route = "productDetail/{productId}",
+            arguments = listOf(navArgument("productId") { type = NavType.StringType }) // Atau IntType jika ID produk adalah Int
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("productId")
+            // ProductDetailScreen(navController = navController, productId = productId) // Buat screen ini
+            if (productId != null) {
+                // Contoh: Tampilkan Text saja untuk placeholder
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Detail untuk Produk ID: $productId")
+                }
+            }
+        }
 
     }
 }

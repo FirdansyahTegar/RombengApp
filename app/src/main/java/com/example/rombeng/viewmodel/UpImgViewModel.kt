@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.AndroidViewModel // Ganti ViewModel dengan AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.rememberNavController
 import com.example.rombeng.model.ImageUploadResponse // Model disesuaikan
 import com.example.rombeng.MyApi // API interface disesuaikan
 import com.example.rombeng.service.RetrofitClient // Retrofit client disesuaikan
@@ -184,10 +185,13 @@ class UpImgViewModel(
                     lokasi = lokasiBody
                 )
 
+//                val navController = rememberNavController()
+
                 if (response.isSuccessful && response.body() != null) {
                     val responseBody = response.body()!!
                     if (responseBody.status == "success") {
                         _uploadStatus.value = UploadResult.Success(responseBody)
+//                        navController.navigate('paymentList')
                     } else {
                         _uploadStatus.value = UploadResult.Error(responseBody.message ?: "Terjadi kesalahan pada server (multi-upload).")
                     }
