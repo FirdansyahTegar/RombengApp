@@ -169,6 +169,8 @@ fun RombengLanding(navController: NavController, viewModel: RombengViewModel = v
 //        }
 //    }
 
+    ExitConfirmationHandler()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -282,6 +284,11 @@ fun RombengLogin(
     loginViewModel: LoginViewModel = viewModel(),
     onLoginSuccess: () -> Unit
 ) {
+
+    BackHandler {
+        navController.navigate("landing")
+    }
+
     val view = LocalView.current
     LaunchedEffect(Unit) {
         val window = (view.context as Activity).window
@@ -668,63 +675,48 @@ fun RombengRegister(
                 val isRegButtonEnabled = viewModel.regButton
 
                 // Mengamati IntentSenderRequest untuk Google Sign-In
-                val googleSignInIntentSender by viewModel.googleSignInIntentSender.collectAsState()
-
-                // Launcher untuk hasil Google Sign-In
-                val googleSignInLauncher =
-                    rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.StartIntentSenderForResult()
-                ) { result ->
-                    if (result.resultCode == Activity.RESULT_OK) {
-                        try {
-                            viewModel.handleGoogleSignUpResult(result.data)
-                        } catch (e: ApiException) {
-                            Log.e("RegisterScreen", "Google Sign-In failed after activity result: ${e.localizedMessage}")
-                            // ViewModel sudah menangani ini, tapi bisa ditambahkan logging tambahan jika perlu
-                        }
-                    } else {
-                        // Pengguna mungkin membatalkan atau ada error lain
-                        Log.w("RegisterScreen", "Google Sign-In canceled or failed. Result code: ${result.resultCode}")
-                        // ViewModel akan menangani CommonStatusCodes.CANCELED jika itu kasusnya
-                        // Jika tidak, pastikan ViewModel mereset state loading/button jika perlu
-                        if (result.resultCode != Activity.RESULT_CANCELED) {
-                            viewModel.message = "Proses Google Sign-In tidak berhasil."
-                            viewModel.error = true // Set error jika bukan pembatalan eksplisit
-                        }
-                        viewModel.Loading = false
-                        viewModel.regButton = true
-                        viewModel.consumeGoogleSignInIntent() // Pastikan intent dikonsumsi
-                    }
-                }
-
-                // LaunchedEffect untuk meluncurkan dialog Google Sign-In ketika intent sender tersedia
-                LaunchedEffect(googleSignInIntentSender) {
-                    googleSignInIntentSender?.let { intentSenderRequest ->
-                        googleSignInLauncher.launch(intentSenderRequest)
-                        // Penting: Konsumsi intent setelah diluncurkan agar tidak ter-trigger lagi
-                        // ViewModel Anda mungkin sudah melakukan ini, atau Anda bisa melakukannya di sini
-                        // rombengViewModel.consumeGoogleSignInIntent() // Panggil jika ViewModel tidak otomatis meresetnya
-                    }
-                }
+//                val googleSignInIntentSender by viewModel.googleSignInIntentSender.collectAsState()
+//
+//                // Launcher untuk hasil Google Sign-In
+//                val googleSignInLauncher =
+//                    rememberLauncherForActivityResult(
+//                    contract = ActivityResultContracts.StartIntentSenderForResult()
+//                ) { result ->
+//                    if (result.resultCode == Activity.RESULT_OK) {
+//                        try {
+//                            viewModel.handleGoogleSignUpResult(result.data)
+//                        } catch (e: ApiException) {
+//                            Log.e("RegisterScreen", "Google Sign-In failed after activity result: ${e.localizedMessage}")
+//                            // ViewModel sudah menangani ini, tapi bisa ditambahkan logging tambahan jika perlu
+//                        }
+//                    } else {
+//                        // Pengguna mungkin membatalkan atau ada error lain
+//                        Log.w("RegisterScreen", "Google Sign-In canceled or failed. Result code: ${result.resultCode}")
+//                        // ViewModel akan menangani CommonStatusCodes.CANCELED jika itu kasusnya
+//                        // Jika tidak, pastikan ViewModel mereset state loading/button jika perlu
+//                        if (result.resultCode != Activity.RESULT_CANCELED) {
+//                            viewModel.message = "Proses Google Sign-In tidak berhasil."
+//                            viewModel.error = true // Set error jika bukan pembatalan eksplisit
+//                        }
+//                        viewModel.Loading = false
+//                        viewModel.regButton = true
+//                        viewModel.consumeGoogleSignInIntent() // Pastikan intent dikonsumsi
+//                    }
+//                }
+//
+//                // LaunchedEffect untuk meluncurkan dialog Google Sign-In ketika intent sender tersedia
+//                LaunchedEffect(googleSignInIntentSender) {
+//                    googleSignInIntentSender?.let { intentSenderRequest ->
+//                        googleSignInLauncher.launch(intentSenderRequest)
+//                        // Penting: Konsumsi intent setelah diluncurkan agar tidak ter-trigger lagi
+//                        // ViewModel Anda mungkin sudah melakukan ini, atau Anda bisa melakukannya di sini
+//                        // rombengViewModel.consumeGoogleSignInIntent() // Panggil jika ViewModel tidak otomatis meresetnya
+//                    }
+//                }
 
                 Button(
                     onClick = {
-                        // Panggil fungsi beginGoogleSignUp dari ViewModel
-                        // Pastikan activity yang valid diteruskan.
-                        // Dalam Composable, LocalContext.current biasanya adalah Activity.
-                        val activity = context as? Activity
-                        if (activity != null) {
-                            if (serverClientId == "MASUKKAN_SERVER_CLIENT_ID_ANDA_DISINI") {
-                                viewModel.message = "Client ID Google belum dikonfigurasi."
-                                viewModel.error = true
-                            } else {
-                                viewModel.beginGoogleSignUp(activity, serverClientId)
-                            }
-                        } else {
-                            Log.e("RegisterScreen", "Context bukan Activity, tidak bisa memulai Google Sign-Up")
-                            viewModel.message = "Tidak bisa memulai Google Sign-Up saat ini."
-                            viewModel.error = true
-                        }
+                        navController.navigate("signin")
                     },
                     enabled = isRegButtonEnabled,
                     colors = ButtonDefaults.buttonColors(
@@ -831,30 +823,7 @@ fun HomeScreen(
     var showExitDialog by remember { mutableStateOf(false) }
     var showLogOutDialog by remember { mutableStateOf(false) }
 
-    BackHandler {
-        showExitDialog = true
-    }
-
-    if (showExitDialog) {
-        val activity = LocalActivity.current
-        AlertDialog(
-            onDismissRequest = { showExitDialog = false },
-            title = { Text("Keluar Aplikasi") },
-            text = { Text("Apakah Anda yakin ingin keluar?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    activity?.finish()
-                }) {
-                    Text("Ya")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text("Tidak")
-                }
-            }
-        )
-    }
+    ExitConfirmationHandler()
 
     // ==== Observasi Product State DI SINI, di luar LazyColumn ====
     val productsUIState by productViewModel.productsState.observeAsState(initial = ProductUIState.Idle)
@@ -1431,7 +1400,7 @@ fun SearchScreen(navController: NavController, viewModel: RombengViewModel = vie
                             CategoryItem(category, modifier = Modifier
                                 .height(40.dp)
                                 .fillMaxWidth()
-                                .clickable { navController.navigate("kulkasResult") }
+                                .clickable { navController.navigate("searchResult/$category") }
                             )
                         }
                     }
@@ -1597,8 +1566,6 @@ fun SearchResultScreen(
         }
     }
 }
-
-
 
 @Composable
 fun KulkasResult(navController: NavController, viewModel: RombengViewModel = viewModel()) {
@@ -2801,6 +2768,57 @@ fun ExitConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text("Tidak") }
         }
     )
+}
+
+@Composable
+fun ExitConfirmationHandler(
+    enabled: Boolean = true, // Memungkinkan untuk menonaktifkan handler ini jika diperlukan
+    onDismissRequest: () -> Unit = {}, // Memberikan fleksibilitas lebih untuk aksi dismiss
+    title: String = "Keluar Aplikasi",
+    text: String = "Apakah Anda yakin ingin keluar?",
+    confirmButtonText: String = "Ya",
+    dismissButtonText: String = "Tidak"
+) {
+    var showExitDialog by remember { mutableStateOf(false) }
+    val activity = LocalContext.current as? Activity // Menggunakan LocalContext untuk mendapatkan Activity
+
+    // Fungsi internal untuk menangani penutupan dialog
+    val dismissDialog = {
+        showExitDialog = false
+        onDismissRequest() // Panggil callback eksternal jika ada
+    }
+
+    if (enabled) {
+        BackHandler {
+            showExitDialog = true
+        }
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = dismissDialog,
+            title = { Text(text = title) },
+            text = { Text(text = text) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        activity?.finishAndRemoveTask() // Mengakhiri activity dan menghapusnya dari task
+                        // Atau cukup activity?.finish() jika hanya ingin menutup activity saat ini
+                        dismissDialog() // Tutup dialog setelah aksi
+                    }
+                ) {
+                    Text(confirmButtonText)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = dismissDialog
+                ) {
+                    Text(dismissButtonText)
+                }
+            }
+        )
+    }
 }
 
 //@Preview(showBackground = true)

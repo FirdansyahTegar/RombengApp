@@ -266,99 +266,99 @@ class RombengViewModel : ViewModel() {
             }
     }
 
-    /**
-     * Menangani hasil dari ActivityResultLauncher setelah pengguna berinteraksi dengan dialog Google Sign-In.
-     *
-     * @param data Intent yang diterima dari hasil Activity.
-     */
-    fun handleGoogleSignUpResult(data: Intent?) {
-        // Loading sudah true dari beginGoogleSignUp
-        try {
-            val credential = oneTapClient.getSignInCredentialFromIntent(data)
-            val idToken = credential.googleIdToken
-            // val username = credential.displayName // Bisa digunakan jika perlu di UI atau dikirim ke server
-            // val email = credential.id // Email pengguna, juga bisa diambil dari token di backend
-
-            if (idToken != null) {
-                Log.d("RombengVM_GoogleSignUp", "Google ID Token: $idToken")
-                sendIdTokenToBackendForRegistration(idToken)
-            } else {
-                Log.w("RombengVM_GoogleSignUp", "Google ID Token is null.")
-                Loading = false
-                regButton = true
-                error = true
-                message = "Gagal mendapatkan Google ID Token."
-                _googleSignInIntentSender.value = null // Reset intent sender
-            }
-        } catch (e: ApiException) {
-            Loading = false
-            regButton = true
-            _googleSignInIntentSender.value = null // Reset intent sender
-            when (e.statusCode) {
-                CommonStatusCodes.CANCELED -> {
-                    Log.d("RombengVM_GoogleSignUp", "One-tap dialog was closed by user.")
-                    // Tidak set error, biarkan pengguna mencoba lagi jika mau
-                    message = "Proses Sign-Up Google dibatalkan." // Pesan opsional
-                }
-                CommonStatusCodes.NETWORK_ERROR -> {
-                    Log.w("RombengVM_GoogleSignUp", "One-tap network error.", e)
-                    error = true
-                    message = "Kesalahan jaringan saat Sign-Up Google."
-                }
-                else -> {
-                    Log.w("RombengVM_GoogleSignUp", "Couldn't get credential from result.", e)
-                    error = true
-                    message = "Gagal mendapatkan kredensial Google: ${e.localizedMessage}"
-                }
-            }
-        }
-    }
-
-    /**
-     * Mengirimkan ID Token Google ke backend (add_users.php) untuk proses registrasi.
-     *
-     * @param idToken Token ID Google yang diperoleh.
-     */
-    private fun sendIdTokenToBackendForRegistration(idToken: String) {
-        // Loading sudah true
-        val requestBody = GoogleRegisterRequest(google_id_token = idToken)
-
-        RetrofitClient.myApi.registerWithGoogle(requestBody)
-            .enqueue(object : Callback<AddUserResponse> {
-                override fun onResponse(
-                    call: Call<AddUserResponse>,
-                    response: Response<AddUserResponse>
-                ) {
-                    Loading = false
-                    regButton = true
-                    _googleSignInIntentSender.value = null // Reset intent sender setelah selesai
-                    if (response.isSuccessful) {
-                        succes = true
-                        message = response.body()?.message ?: "Registrasi Google Berhasil"
-                        Log.i("RombengVM_GoogleReg", "Registration successful: $message")
-                        // resetTextField() // Opsional: reset field jika ada yang terisi
-                    } else {
-                        error = true
-                        val errorBody = response.errorBody()?.string()
-                        message = try {
-                            org.json.JSONObject(errorBody ?: "{}").getString("error")
-                        } catch (e: Exception) {
-                            "Registrasi Google gagal, Error: ${response.code()}"
-                        }
-                        Log.w("RombengVM_GoogleReg", "Backend registration failed: ${response.code()}, Body: $errorBody")
-                    }
-                }
-
-                override fun onFailure(call: Call<AddUserResponse>, t: Throwable) {
-                    Loading = false
-                    regButton = true
-                    error = true
-                    message = "Error registrasi Google: ${t.localizedMessage}"
-                    Log.e("RombengVM_GoogleReg", "Failure sending token to backend", t)
-                    _googleSignInIntentSender.value = null // Reset intent sender
-                }
-            })
-    }
+//    /**
+//     * Menangani hasil dari ActivityResultLauncher setelah pengguna berinteraksi dengan dialog Google Sign-In.
+//     *
+//     * @param data Intent yang diterima dari hasil Activity.
+//     */
+//    fun handleGoogleSignUpResult(data: Intent?) {
+//        // Loading sudah true dari beginGoogleSignUp
+//        try {
+//            val credential = oneTapClient.getSignInCredentialFromIntent(data)
+//            val idToken = credential.googleIdToken
+//            // val username = credential.displayName // Bisa digunakan jika perlu di UI atau dikirim ke server
+//            // val email = credential.id // Email pengguna, juga bisa diambil dari token di backend
+//
+//            if (idToken != null) {
+//                Log.d("RombengVM_GoogleSignUp", "Google ID Token: $idToken")
+//                sendIdTokenToBackendForRegistration(idToken)
+//            } else {
+//                Log.w("RombengVM_GoogleSignUp", "Google ID Token is null.")
+//                Loading = false
+//                regButton = true
+//                error = true
+//                message = "Gagal mendapatkan Google ID Token."
+//                _googleSignInIntentSender.value = null // Reset intent sender
+//            }
+//        } catch (e: ApiException) {
+//            Loading = false
+//            regButton = true
+//            _googleSignInIntentSender.value = null // Reset intent sender
+//            when (e.statusCode) {
+//                CommonStatusCodes.CANCELED -> {
+//                    Log.d("RombengVM_GoogleSignUp", "One-tap dialog was closed by user.")
+//                    // Tidak set error, biarkan pengguna mencoba lagi jika mau
+//                    message = "Proses Sign-Up Google dibatalkan." // Pesan opsional
+//                }
+//                CommonStatusCodes.NETWORK_ERROR -> {
+//                    Log.w("RombengVM_GoogleSignUp", "One-tap network error.", e)
+//                    error = true
+//                    message = "Kesalahan jaringan saat Sign-Up Google."
+//                }
+//                else -> {
+//                    Log.w("RombengVM_GoogleSignUp", "Couldn't get credential from result.", e)
+//                    error = true
+//                    message = "Gagal mendapatkan kredensial Google: ${e.localizedMessage}"
+//                }
+//            }
+//        }
+//    }
+//
+//    /**
+//     * Mengirimkan ID Token Google ke backend (add_users.php) untuk proses registrasi.
+//     *
+//     * @param idToken Token ID Google yang diperoleh.
+//     */
+//    private fun sendIdTokenToBackendForRegistration(idToken: String) {
+//        // Loading sudah true
+//        val requestBody = GoogleRegisterRequest(google_id_token = idToken)
+//
+//        RetrofitClient.myApi.registerWithGoogle(requestBody)
+//            .enqueue(object : Callback<AddUserResponse> {
+//                override fun onResponse(
+//                    call: Call<AddUserResponse>,
+//                    response: Response<AddUserResponse>
+//                ) {
+//                    Loading = false
+//                    regButton = true
+//                    _googleSignInIntentSender.value = null // Reset intent sender setelah selesai
+//                    if (response.isSuccessful) {
+//                        succes = true
+//                        message = response.body()?.message ?: "Registrasi Google Berhasil"
+//                        Log.i("RombengVM_GoogleReg", "Registration successful: $message")
+//                        // resetTextField() // Opsional: reset field jika ada yang terisi
+//                    } else {
+//                        error = true
+//                        val errorBody = response.errorBody()?.string()
+//                        message = try {
+//                            org.json.JSONObject(errorBody ?: "{}").getString("error")
+//                        } catch (e: Exception) {
+//                            "Registrasi Google gagal, Error: ${response.code()}"
+//                        }
+//                        Log.w("RombengVM_GoogleReg", "Backend registration failed: ${response.code()}, Body: $errorBody")
+//                    }
+//                }
+//
+//                override fun onFailure(call: Call<AddUserResponse>, t: Throwable) {
+//                    Loading = false
+//                    regButton = true
+//                    error = true
+//                    message = "Error registrasi Google: ${t.localizedMessage}"
+//                    Log.e("RombengVM_GoogleReg", "Failure sending token to backend", t)
+//                    _googleSignInIntentSender.value = null // Reset intent sender
+//                }
+//            })
+//    }
 
     /**
      * Panggil ini dari Composable ketika ActivityResultLauncher untuk Google Sign-In
