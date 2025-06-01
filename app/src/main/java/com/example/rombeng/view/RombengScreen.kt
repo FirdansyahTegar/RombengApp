@@ -2,6 +2,7 @@ package com.example.rombeng.view
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import android.util.Log
 import android.view.View
@@ -132,6 +133,14 @@ var isErrorEmail by mutableStateOf(false)
 var isErrorPass by mutableStateOf(false)
 var isErrorConfPass by mutableStateOf(false)
 
+fun Context.findActivity(): Activity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is Activity) return context
+        context = context.baseContext
+    }
+    return null // atau throw exception jika Activity wajib ada
+}
 
 @Composable //Loading Screen
 fun RombengLoadScreen() {
@@ -2780,7 +2789,8 @@ fun ExitConfirmationHandler(
     dismissButtonText: String = "Tidak"
 ) {
     var showExitDialog by remember { mutableStateOf(false) }
-    val activity = LocalContext.current as? Activity // Menggunakan LocalContext untuk mendapatkan Activity
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
 
     // Fungsi internal untuk menangani penutupan dialog
     val dismissDialog = {
