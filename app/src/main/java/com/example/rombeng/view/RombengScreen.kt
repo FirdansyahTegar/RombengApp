@@ -24,9 +24,12 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 //import androidx.compose.foundation.layout.FlowRowScopeInstance.align
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable // Kemungkinan tidak terpakai, periksa penggunaan
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -108,11 +111,15 @@ import com.example.rombeng.service.RetrofitClient
 import com.example.rombeng.viewmodel.LoginUIState
 import com.example.rombeng.viewmodel.UpImgViewModel
 import com.example.rombeng.viewmodel.UploadResult
-import com.example.rombeng.viewmodel.ProductUIState
+import com.example.rombeng.viewmodel.ProductListUIState
+import com.example.rombeng.viewmodel.ProductDetailUIState
 import com.example.rombeng.viewmodel.ProductViewModel
 import com.example.rombeng.viewmodel.SearchUIState
 import com.example.rombeng.viewmodel.SearchViewModel
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import com.google.android.gms.common.api.ApiException // Kemungkinan tidak terpakai, periksa penggunaan
+import androidx.compose.foundation.pager.PagerState // Jika Anda ingin indikator (opsional)
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -814,6 +821,7 @@ fun HomeScreen(
 
     val view = LocalView.current
     LaunchedEffect(Unit) {
+        productViewModel.fetchProducts()
         val window = (view.context as Activity).window
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -834,8 +842,9 @@ fun HomeScreen(
 
     ExitConfirmationHandler()
 
-    // ==== Observasi Product State DI SINI, di luar LazyColumn ====
-    val productsUIState by productViewModel.productsState.observeAsState(initial = ProductUIState.Idle)
+    // ==== Observasi Product List State DI SINI, di luar LazyColumn ====
+    val productListStateObserved = productViewModel.productsListState.observeAsState(initial = ProductListUIState.Idle)
+    val productListState = productListStateObserved.value ?: ProductListUIState.Idle
 
     // ==== Layout Utama ====
     Box(
@@ -895,12 +904,28 @@ fun HomeScreen(
                             .height(200.dp) // Sesuaikan jika perlu
                             .fillMaxWidth()
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.bg_home),
-                            contentDescription = "Background",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                        AutoScrollingImageCarousel(
+                            modifier = Modifier.fillMaxSize(),
+                            imageResources = listOf(
+                                R.drawable.bg_home,
+                                R.drawable.bg_home2,
+                                R.drawable.bg_home3
+                                // Gambar utama Anda
+                                // Tambahkan ID drawable gambar lain untuk carousel di sini:
+                                // Misalnya, jika Anda punya bg_home_2 dan bg_home_3:
+                                // R.drawable.bg_home_2,
+                                // R.drawable.bg_home_3
+                                // Jika hanya punya satu gambar, carousel tidak akan auto-scroll atau swipe,
+                                // tapi akan tetap ditampilkan. Untuk efek carousel, perlu minimal 2 gambar.
+                            ),
+                            autoScrollDurationMillis = 4000L // Ganti durasi jika perlu (misal 4 detik)
                         )
+//                        Image(
+//                            painter = painterResource(id = R.drawable.bg_home),
+//                            contentDescription = "Background",
+//                            contentScale = ContentScale.Crop,
+//                            modifier = Modifier.fillMaxSize()
+//                        )
                         Column(
                             modifier = Modifier
                                 .fillMaxSize() // Memastikan Column mengisi Box
@@ -952,8 +977,7 @@ fun HomeScreen(
                                         .clip(RoundedCornerShape(20.dp))
                                         .background(Color(0xFFFF8000))
                                         .clickable {
-                                            // TODO: Navigasi ke halaman kategori
-                                            // navController.navigate("category/$category")
+                                            navController.navigate("searchResult/$category")
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -991,8 +1015,8 @@ fun HomeScreen(
                     )
                 }
 
-                when (val currentState = productsUIState) {
-                    is ProductUIState.Loading -> {
+                when (val currentState = productListState) {
+                    is ProductListUIState.Loading -> {
                         item { // item untuk menempatkan CircularProgressIndicator di dalam LazyColumn
                             Box(
                                 modifier = Modifier
@@ -1004,7 +1028,7 @@ fun HomeScreen(
                             }
                         }
                     }
-                    is ProductUIState.Success -> {
+                    is ProductListUIState.Success -> {
                         val products = currentState.products
                         if (products.isNotEmpty()) {
                             // `items` ini akan membuat banyak item di LazyColumn, satu untuk setiap baris produk
@@ -1021,12 +1045,12 @@ fun HomeScreen(
                                             harga = product.harga,
                                             lokasi = product.lokasi,
                                             penjual = product.penjualUsername,
-                                            imageUrl = product.gambarUrls.firstOrNull(),
+                                            imageUrl = product.gambarUrls?.firstOrNull(),
                                             modifier = Modifier
                                                 .weight(1f) // Agar kartu mengisi ruang secara merata
                                                 .padding(horizontal = 4.dp) // Padding antar kartu
                                                 .clickable {
-                                                    navController.navigate("productDetail/${product.id}")
+                                                    navController.navigate("product_detail/${product.id}")
                                                 }
                                         )
                                     }
@@ -1047,10 +1071,11 @@ fun HomeScreen(
                                         .padding(16.dp),
                                     textAlign = TextAlign.Center
                                 )
+                                Log.d("ProductList", "Tidak ada produk untuk ditampilkan.")
                             }
                         }
                     }
-                    is ProductUIState.Error -> {
+                    is ProductListUIState.Error -> {
                         item {
                             Column(
                                 modifier = Modifier
@@ -1066,7 +1091,7 @@ fun HomeScreen(
                             }
                         }
                     }
-                    is ProductUIState.Empty -> {
+                    is ProductListUIState.Empty -> {
                         item {
                             Text(
                                 "Tidak ada rekomendasi barang bekas tersedia.",
@@ -1080,7 +1105,7 @@ fun HomeScreen(
 //                            }
                         }
                     }
-                    is ProductUIState.Idle -> {
+                    is ProductListUIState.Idle -> {
                         item {
                             // Bisa tampilkan shimmer/placeholder atau biarkan kosong jika loading cepat
                             Box(
@@ -1531,12 +1556,12 @@ fun SearchResultScreen(
                                         harga = product.harga,
                                         lokasi = product.lokasi,
                                         penjual = product.penjualUsername,
-                                        imageUrl = product.gambarUrls.firstOrNull(),
+                                        imageUrl = product.gambarUrls?.firstOrNull(),
                                         modifier = Modifier
                                             .weight(1f) // Agar kartu mengisi ruang yang tersedia
                                             .padding(4.dp) // Padding antar kartu
                                             .clickable {
-                                                navController.navigate("productDetail/${product.id}")
+                                                navController.navigate("product_detail/${product.id}")
                                             }
                                     )
                                 }
@@ -2302,10 +2327,10 @@ data class BottomNavItem(
 
 @Composable
 fun CardBuilder(
-    judul: String,
-    harga: String,
-    lokasi: String,
-    penjual: String?, // Tambahkan parameter untuk nama penjual
+    judul: String? = "tanpa judul",
+    harga: String? = "tanpa harga",
+    lokasi: String? = "tanpa lokasi",
+    penjual: String? = "tanpa penjual", // Tambahkan parameter untuk nama penjual
     imageUrl: String?,
     modifier: Modifier = Modifier
 ) {
@@ -2332,7 +2357,7 @@ fun CardBuilder(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = judul,
+            text = if(judul != null) {judul} else {"none"},
             fontSize = 16.sp,
             fontFamily = FontFamily.SansSerif,
             color = Color.Black,
@@ -2344,7 +2369,7 @@ fun CardBuilder(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = harga,
+            text = if(harga != null) {harga} else {"none"},
             fontSize = 12.sp,
             fontFamily = FontFamily.SansSerif,
             color = Color.Black,
@@ -2353,7 +2378,7 @@ fun CardBuilder(
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = lokasi,
+            text = if(lokasi != null) {lokasi} else {"none"},
             fontSize = 12.sp,
             fontFamily = FontFamily.SansSerif,
             color = Color.Black,
@@ -2416,7 +2441,7 @@ fun KategoriDropdown(
     onKategoriSelected: (String) -> Unit,
     isError: Boolean = false
 ) {
-    val kategoriList = listOf("Elektronik", "Fashion", "Rumah Tangga", "Hobi", "Lainnya")
+    val kategoriList = listOf("Elektronik", "Fashion", "Furnitur", "Hobi", "Kendaraan", "Material Bangunan", "Lainnya")
     var expanded by remember { mutableStateOf(false) }
 
     ExposedDropdownMenuBox(
@@ -2761,6 +2786,90 @@ fun UploadButton(
             },
             properties = DialogProperties(dismissOnClickOutside = false),
         )
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // Untuk PagerState
+@Composable
+fun CustomPagerIndicator(
+    modifier: Modifier = Modifier,
+    pagerState: PagerState,
+    activeColor: Color = Color.DarkGray, // Atau MaterialTheme.colorScheme.primary
+    inactiveColor: Color = Color.LightGray, // Atau MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+    indicatorSize: Dp = 8.dp,
+    spacing: Dp = 8.dp
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.CenterStart
+    ) {
+        LazyRow(
+            modifier = Modifier.wrapContentWidth().wrapContentHeight(),
+            horizontalArrangement = Arrangement.spacedBy(spacing),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items(pagerState.pageCount) { pageIndex ->
+                val isSelected = pagerState.currentPage == pageIndex
+                Box(
+                    modifier = Modifier
+                        .size(indicatorSize)
+                        .clip(CircleShape)
+                        .background(if (isSelected) activeColor else inactiveColor)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun AutoScrollingImageCarousel(
+    modifier: Modifier = Modifier,
+    imageResources: List<Int> = listOf( /* ... */ ),
+    autoScrollDurationMillis: Long = 3000L
+) {
+    if (imageResources.isEmpty()) {
+        // ... (placeholder)
+        return
+    }
+
+    val pagerState = rememberPagerState(pageCount = { imageResources.size })
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(pagerState.currentPage) { // Atau Unit
+        if (imageResources.size > 1) {
+            while (true) {
+                delay(autoScrollDurationMillis)
+                coroutineScope.launch {
+                    val nextPage = (pagerState.currentPage + 1) % imageResources.size
+                    pagerState.animateScrollToPage(nextPage)
+                }
+            }
+        }
+    }
+
+    Box(modifier = modifier) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { pageIndex ->
+            Image(
+                painter = painterResource(id = imageResources[pageIndex]),
+                contentDescription = "Carousel image ${pageIndex + 1}",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // Gunakan indikator kustom Anda
+        if (imageResources.size > 1) {
+            CustomPagerIndicator(
+                pagerState = pagerState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+            )
+        }
     }
 }
 

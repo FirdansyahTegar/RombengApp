@@ -78,6 +78,7 @@ import android.widget.Toast
 import androidx.navigation.navArgument
 import com.example.rombeng.viewmodel.LoginViewModel
 import com.example.rombeng.viewmodel.CartViewModel
+import com.example.rombeng.viewmodel.ProductViewModel
 
 
 class MainActivity : ComponentActivity() {
@@ -160,103 +161,46 @@ fun AppNavigator(viewModel: RombengViewModel, lviewModel: LoginViewModel) {
         }
         composable("kulkasResult") { KulkasResult(navController) }
         composable(
-            route = "productDetail/{productId}",
-            arguments = listOf(navArgument("productId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val productIdString = backStackEntry.arguments?.getString("productId")
-            val cartViewModel: CartViewModel = viewModel()
-            val loginViewModel: LoginViewModel = viewModel() // Pastikan LoginViewModel juga ada
-
-            val context = LocalContext.current
-            var isLoadingAddToCart by remember { mutableStateOf(false) }
-
-            // 1. Dapatkan currentUser dan productId yang valid
-            val currentUser = loginViewModel.getCurrentUser()
-            val productId = productIdString?.toIntOrNull()
-
-            // 2. Inisialisasi CartViewModel dengan userId dari currentUser
-            //    LaunchedEffect akan menjalankan ini ketika currentUser.id berubah (setelah login)
-            //    atau saat composable ini pertama kali ditampilkan dengan user yang valid.
-            LaunchedEffect(currentUser?.id) {
-                if (currentUser != null && currentUser.id != -1) {
-                    cartViewModel.initializeUser(currentUser.id)
-                    Log.d("ProductDetail", "CartViewModel initialized with User ID: ${currentUser.id}")
-                } else {
-                    // Handle kasus jika user tidak login saat masuk ke detail
-                    // Ini mungkin tidak akan terjadi jika Anda memproteksi rute ini,
-                    // tapi sebagai pengaman.
-                    Log.w("ProductDetail", "User not logged in or ID invalid when trying to initialize CartViewModel.")
-                    // Anda bisa langsung menonaktifkan tombol atau menampilkan pesan
+            route = "product_detail/{productId}",
+            arguments = listOf(
+                navArgument("productId") {
+                    type = NavType.StringType // ID produk dari PHP mungkin string, atau sesuaikan
+                    nullable = false
                 }
-            }
-
+            )
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("productId")
             if (productId != null) {
+                // Dapatkan instance ViewModel di sini.
+                // viewModel() akan memberikan instance yang sama jika sudah ada dalam scope yang benar
+                // atau membuat yang baru.
+                val productViewModel: ProductViewModel = viewModel()
+                val cartViewModel: CartViewModel = viewModel()
+                val loginViewModel: LoginViewModel = viewModel()
+
+                DetailProductScreen(
+                    navController = navController,
+                    productId = productId,
+                    productViewModel = productViewModel,
+                    cartViewModel = cartViewModel,
+                    loginViewModel = loginViewModel
+                )
+            } else {
+                // Handle kasus productId null, mungkin navigasi kembali atau tampilkan error
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Detail untuk Produk ID: $productId")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                // 3. Pastikan currentUser dan userId di CartViewModel sudah ada sebelum menambah ke keranjang
-                                val activeUser = loginViewModel.getCurrentUser() // Ambil lagi untuk kepastian
-                                val cartVmUserId = cartViewModel.currentUserId // Ambil userId dari CartViewModel
-
-                                Log.d("ProductDetail", "Attempting to add to cart. LoginViewModel User: ${activeUser?.id}, CartViewModel UserID: $cartVmUserId")
-
-                                if (activeUser != null && activeUser.id != -1) {
-                                    if (cartVmUserId != null && cartVmUserId == activeUser.id) { // Pastikan CartVM sudah diinisialisasi dengan user yang benar
-                                        isLoadingAddToCart = true
-                                        cartViewModel.addProductToCart(
-                                            productId = productId,
-                                            onResult = { success, message ->
-                                                isLoadingAddToCart = false
-                                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                                if (success) {
-                                                    Log.d("ProductDetail", "Produk $productId berhasil ditambahkan ke keranjang.")
-                                                    // Opsional: Navigasi ke keranjang atau berikan feedback lain
-                                                    // navController.navigate("cart")
-                                                } else {
-                                                    Log.e("ProductDetail", "Gagal menambahkan produk $productId ke keranjang: $message")
-                                                }
-                                            }
-                                        )
-                                    } else {
-                                        // Ini bisa terjadi jika LaunchedEffect belum selesai atau ada masalah sinkronisasi
-                                        Toast.makeText(context, "CartViewModel belum siap. Coba lagi.", Toast.LENGTH_SHORT).show()
-                                        Log.w("ProductDetail", "CartViewModel UserID ($cartVmUserId) mismatch or not set. Expected: ${activeUser.id}. Re-initializing.")
-                                        // Coba inisialisasi lagi sebagai fallback, atau tampilkan pesan error yang lebih jelas
-                                        cartViewModel.initializeUser(activeUser.id) // Coba paksa inisialisasi lagi
-                                    }
-                                } else {
-                                    Toast.makeText(context, "Anda harus login untuk menambahkan item ke keranjang.", Toast.LENGTH_LONG).show()
-                                    // Opsional: Navigasi ke halaman login
-                                    // navController.navigate("signin")
-                                }
-                            },
-                            // Nonaktifkan tombol jika user belum login, atau productId tidak valid, atau sedang loading
-                            enabled = !isLoadingAddToCart && currentUser != null && currentUser.id != -1 && productId != null
-                        ) {
-                            if (isLoadingAddToCart) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Text("Masukkan ke keranjang")
-                            }
-                        }
-                    }
+                    Text("Error: ID Produk tidak valid.")
                 }
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(if (productIdString == null) "Error: Product ID tidak ditemukan." else "Error: Product ID tidak valid.")
+                // Navigasi kembali jika ID tidak ada setelah beberapa saat
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(2000) // Tunda sebentar agar pesan error terlihat
+                    navController.popBackStack()
                 }
             }
         }
+
 
 
 

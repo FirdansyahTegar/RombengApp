@@ -192,6 +192,7 @@ fun CartScreen(
                             CartItemRow(
                                 item = item,
                                 isSelected = selectedItems.contains(item.productId),
+                                navController = navController,
                                 onItemSelected = { productId, isChecked ->
                                     if (isChecked) {
                                         selectedItems.add(productId)
@@ -355,6 +356,7 @@ fun EmptyCartView(modifier: Modifier = Modifier) {
 @Composable
 fun CartItemRow(
     item: CartItem,
+    navController: NavController,
     isSelected: Boolean,
     onItemSelected: (productId: Int, isSelected: Boolean) -> Unit,
     onQuantityChange: (productId: Int, newQuantity: Int) -> Unit,
@@ -374,7 +376,6 @@ fun CartItemRow(
         )
 
         Spacer(modifier = Modifier.width(8.dp))
-        val navController = rememberNavController()
         // Gambar Produk
         Image(
             painter = rememberAsyncImagePainter(
@@ -384,7 +385,7 @@ fun CartItemRow(
             contentDescription = item.productName,
             modifier = Modifier
                 .size(80.dp)
-                .clickable { navController.navigate("productDetail/${item.productId}") }
+                .clickable { navController.navigate("product_detail/${item.productId}") }
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color.LightGray), // Background jika gambar gagal load
             contentScale = ContentScale.Crop

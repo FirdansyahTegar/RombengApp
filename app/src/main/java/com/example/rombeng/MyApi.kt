@@ -9,6 +9,7 @@ import com.example.rombeng.model.ProductListResponse
 import com.example.rombeng.model.User
 import com.example.rombeng.model.CartActionResponse
 import com.example.rombeng.model.CartListResponse
+import com.example.rombeng.model.ProductDetailResponse
 import com.example.rombeng.model.UploadResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -96,7 +97,8 @@ interface MyApi {
         @Field("user_id") userId: Int // userId dikirim sebagai field
     ): Response<CartActionResponse>
 
-
+    @GET("get_product_detail.php") // Nama file PHP baru Anda
+    suspend fun getProductById(@Query("id") productId: String): Response<ProductDetailResponse>
 
 
 

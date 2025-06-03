@@ -7,22 +7,22 @@ data class Product(
     val id: Int,
 
     @SerializedName("nama_produk")
-    val namaProduk: String,
+    val namaProduk: String?,
 
     @SerializedName("harga")
-    val harga: String,
+    val harga: String?,
 
     @SerializedName("kategori")
-    val kategori: String,
+    val kategori: String?,
 
     @SerializedName("deskripsi_produk")
-    val deskripsiProduk: String,
+    val deskripsiProduk: String?,
 
     @SerializedName("lokasi")
-    val lokasi: String,
+    val lokasi: String?,
 
     @SerializedName("gambar_urls")
-    val gambarUrls: List<String>,
+    val gambarUrls: List<String>?,
 
     @SerializedName("user_id")
     val userId: Int,
@@ -31,7 +31,7 @@ data class Product(
     val penjualUsername: String?, // Bisa null jika ada kasus data user tidak ditemukan (meskipun JOIN seharusnya mencegah ini jika datanya konsisten)
 
     @SerializedName("tanggal_unggah")
-    val tanggalUnggah: String
+    val tanggalUnggah: String?
 )
 
 // Wrapper response jika API Anda mengembalikan struktur {status, message, data: [...]}
